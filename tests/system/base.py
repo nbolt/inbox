@@ -17,7 +17,7 @@ from google_auth_helper import google_auth
 from outlook_auth_helper import outlook_auth
 from inbox.auth.gmail import create_auth_account as create_gmail_account
 from inbox.auth.outlook import create_auth_account as create_outlook_account
-from client import APIClient
+from inbox.client import APIClient
 
 
 def for_all_available_providers(fn):
@@ -33,9 +33,8 @@ def for_all_available_providers(fn):
             start_time = time.time()
             while time.time() - start_time < TEST_MAX_DURATION_SECS:
                 time.sleep(TEST_GRANULARITY_CHECK_SECS)
-                client, ns = APIClient.from_email(email)
-                if client is not None:
-                    break
+                client = APIClient(None, None, None, "http://localhost:5555")
+                ns = find_namespace(client.namespaces.items(), email)
 
             assert client, ("Creating account from password file"
                             " should have been faster")
@@ -48,7 +47,7 @@ def for_all_available_providers(fn):
             start_time = time.time()
             sync_started = False
             while time.time() - start_time < TEST_MAX_DURATION_SECS:
-                msgs = client.get_messages()
+                msgs = namespace.messages
                 if len(msgs) > 0:
                     sync_started = True
                     break
@@ -95,3 +94,11 @@ def create_account(db_session, email, password):
 def format_test_result(function_name, provider, email, start_time):
     print "%s\t%s\t%s\t%f" % (function_name, provider,
                               email, time.time() - start_time)
+
+
+def find_namespace(namespaces, email_address):
+    for namespace in namespaces:
+        if namespace.email_address == email:
+            return namespace
+
+    return None

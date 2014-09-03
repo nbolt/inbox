@@ -47,3 +47,4 @@ Flask-RESTful==0.2.12
 google-api-python-client==1.2
 oauth2client==1.2
 icalendar==3.8.2
+-e git://github.com/inboxapp/inbox-python.git@master#egg=inbox-python

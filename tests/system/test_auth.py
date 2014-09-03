@@ -1,6 +1,6 @@
 import pytest
 import time
-from client import APIClient
+from inbox.client import APIClient
 from base import create_account
 from inbox.auth.generic import delete_account
 from inbox.auth import handler_from_email
