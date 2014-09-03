@@ -57,3 +57,4 @@ git+https://github.com/inboxapp/inbox-python.git@master#egg=inbox-python
 git+https://github.com/kav-ya/pynacl.git@libsodium_fix#egg=pynacl
 pyaml==14.05.7
 enum==0.4.4
+git+https://github.com/inboxapp/inbox-python.git@master#egg=inbox-python

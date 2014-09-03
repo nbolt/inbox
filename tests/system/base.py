@@ -7,7 +7,7 @@
 #
 # For instance, if you want to define a test which will run against
 # a gmail account, you test class will inherit E2ETest and GmailMixin.
-import time
+from time import time, sleep
 from inbox.auth import handler_from_email
 from inbox.util.url import provider_from_address
 from inbox.models.session import session_scope
@@ -17,50 +17,50 @@ from google_auth_helper import google_auth
 from outlook_auth_helper import outlook_auth
 from inbox.auth.gmail import create_auth_account as create_gmail_account
 from inbox.auth.outlook import create_auth_account as create_outlook_account
-from inbox.client import APIClient
+from client import InboxTestClient
 
 
 def for_all_available_providers(fn):
     """Run a test on all providers defined in accounts.py. This function
     handles account setup and teardown."""
-    def f():
+    def f(*args, **kwargs):
         for email, password in passwords:
             with session_scope() as db_session:
                 create_account(db_session, email, password)
 
             client = None
-            ns = None
-            start_time = time.time()
-            while time.time() - start_time < TEST_MAX_DURATION_SECS:
-                time.sleep(TEST_GRANULARITY_CHECK_SECS)
-                client = APIClient(None, None, None, "http://localhost:5555")
-                ns = find_namespace(client.namespaces.items(), email)
+            _client = InboxTestClient(email)
+            start_time = time()
+            while time() - start_time < TEST_MAX_DURATION_SECS:
+                sleep(TEST_GRANULARITY_CHECK_SECS)
+                namespaces = _client.namespaces.all()
+                if len(namespaces):
+                    client = _client
+                    client.provider = namespaces[0]['provider']
+                    break
 
-            assert client, ("Creating account from password file"
-                            " should have been faster")
-            format_test_result("namespace_creation_time", ns["provider"],
+            assert client, ("Failed to create account in {} secs."
+                            .format(TEST_MAX_DURATION_SECS))
+            format_test_result("namespace_creation_time", client.provider,
                                email, start_time)
 
             # wait a little time for the sync to start. It's necessary
             # because a lot of tests rely on stuff setup at the beginning
             # of the sync (for example, a folder hierarchy).
-            start_time = time.time()
+            start_time = time()
             sync_started = False
-            while time.time() - start_time < TEST_MAX_DURATION_SECS:
-                msgs = namespace.messages
+            while time() - start_time < TEST_MAX_DURATION_SECS:
+                msgs = client.messages
                 if len(msgs) > 0:
                     sync_started = True
                     break
-                time.sleep(TEST_GRANULARITY_CHECK_SECS)
+                sleep(TEST_GRANULARITY_CHECK_SECS)
 
             assert sync_started, ("The initial sync should have started")
 
-            data = {"email": ns["email_address"], "provider": ns["provider"]}
-            start_time = time.time()
-            fn(client, data)
-            format_test_result(fn.__name__, ns["provider"],
-                               ns["email_address"],
-                               start_time)
+            start_time = time()
+            fn(client, *args, **kwargs)
+            format_test_result(fn.__name__, provider, email, start_time)
 
             with session_scope() as db_session:
                 # delete account
@@ -94,11 +94,3 @@ def create_account(db_session, email, password):
 def format_test_result(function_name, provider, email, start_time):
     print "%s\t%s\t%s\t%f" % (function_name, provider,
                               email, time.time() - start_time)
-
-
-def find_namespace(namespaces, email_address):
-    for namespace in namespaces:
-        if namespace.email_address == email:
-            return namespace
-
-    return None
