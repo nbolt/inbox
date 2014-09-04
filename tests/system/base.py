@@ -29,16 +29,16 @@ def timeout_loop(name):
             start_time = time()
             while time() - start_time < TEST_MAX_DURATION_SECS:
                 if f(*args, **kwargs):
-                    successs = True
+                    success = True
                     break
-            sleep(TEST_GRANULARITY_CHECK_SECS)
+                sleep(TEST_GRANULARITY_CHECK_SECS)
 
             assert success, ("Failed to {} in less than {}s on {}"
                              .format(name, TEST_MAX_DURATION_SECS,
                                      client.email_address))
 
             format_test_result(name, client.provider,
-                               client.email_addresss, start_time)
+                               client.email_address, start_time)
         return wrapped_f
     return wrap
 
@@ -52,6 +52,7 @@ def wait_for_sync_start(client):
 def wait_for_auth(client):
     namespaces = client.namespaces.all()
     if len(namespaces):
+        client.email_address = namespaces[0]['email_address']
         client.provider = namespaces[0]['provider']
         return True
     return False
@@ -67,7 +68,6 @@ def for_all_available_providers(fn):
 
             client = InboxTestClient(email)
             wait_for_auth(client)
-            start_time = time()
 
             # wait for sync to start. tests rely on things setup at beginning
             # of sync (e.g. fold hierarchy)
