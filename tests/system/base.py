@@ -79,7 +79,8 @@ def for_all_available_providers(fn):
                                email, start_time)
 
             with session_scope() as db_session:
-                delete_account(db_session, email)
+                # delete_account(db_session, email)
+                pass
 
     return f
 
