@@ -20,6 +20,43 @@ from inbox.auth.outlook import create_auth_account as create_outlook_account
 from client import InboxTestClient
 
 
+def timeout_loop(name):
+    def wrap(f):
+        def wrapped_f(*args, **kwargs):
+            client=args[0]
+            print "Waiting for: {}...".format(name)
+            success = False
+            start_time = time()
+            while time() - start_time < TEST_MAX_DURATION_SECS:
+                if f(*args, **kwargs):
+                    successs = True
+                    break
+            sleep(TEST_GRANULARITY_CHECK_SECS)
+
+            assert success, ("Failed to {} in less than {}s on {}"
+                             .format(name, TEST_MAX_DURATION_SECS,
+                                     client.email_address))
+
+            format_test_result(name, client.provider,
+                               client.email_addresss, start_time)
+        return wrapped_f
+    return wrap
+
+
+@timeout_loop('sync_start')
+def wait_for_sync_start(client):
+    return True if client.messages.first() else False
+
+
+@timeout_loop('auth')
+def wait_for_auth(client):
+    namespaces = client.namespaces.all()
+    if len(namespaces):
+        client.provider = namespaces[0]['provider']
+        return True
+    return False
+
+
 def for_all_available_providers(fn):
     """Run a test on all providers defined in accounts.py. This function
     handles account setup and teardown."""
@@ -28,36 +65,13 @@ def for_all_available_providers(fn):
             with session_scope() as db_session:
                 create_account(db_session, email, password)
 
-            client = None
-            _client = InboxTestClient(email)
+            client = InboxTestClient(email)
+            wait_for_auth(client)
             start_time = time()
-            while time() - start_time < TEST_MAX_DURATION_SECS:
-                sleep(TEST_GRANULARITY_CHECK_SECS)
-                namespaces = _client.namespaces.all()
-                if len(namespaces):
-                    client = _client
-                    client.provider = namespaces[0]['provider']
-                    break
 
-            assert client, ("Failed to create account in {} secs."
-                            .format(TEST_MAX_DURATION_SECS))
-            format_test_result("namespace_creation_time", client.provider,
-                               email, start_time)
-
-            # wait a little time for the sync to start. It's necessary
-            # because a lot of tests rely on stuff setup at the beginning
-            # of the sync (for example, a folder hierarchy).
-            start_time = time()
-            sync_started = False
-            while time() - start_time < TEST_MAX_DURATION_SECS:
-                msgs = client.messages
-                if len(msgs) > 0:
-                    sync_started = True
-                    break
-                sleep(TEST_GRANULARITY_CHECK_SECS)
-
-            assert sync_started, ("The initial sync should have started")
-
+            # wait for sync to start. tests rely on things setup at beginning
+            # of sync (e.g. fold hierarchy)
+            wait_for_sync_start(client)
             start_time = time()
             fn(client, *args, **kwargs)
             format_test_result(fn.__name__, provider, email, start_time)
@@ -93,4 +107,4 @@ def create_account(db_session, email, password):
 
 def format_test_result(function_name, provider, email, start_time):
     print "%s\t%s\t%s\t%f" % (function_name, provider,
-                              email, time.time() - start_time)
+                              email, time() - start_time)

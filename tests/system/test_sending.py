@@ -1,87 +1,52 @@
 # -*- coding: utf-8 -*-
 import pytest
-from time import time, sleep
-from base import for_all_available_providers, format_test_result
-from conftest import TEST_MAX_DURATION_SECS, TEST_GRANULARITY_CHECK_SECS
+from time import strftime
+from base import for_all_available_providers, timeout_loop
+
+
+@timeout_loop('send')
+def wait_for_send(client, subject):
+    threads = client.threads.where(subject=subject)
+    if len(threads.all()) != 2:
+        return False
+    tags = [t.name for thread in threads for t in thread.tags]
+    return True if ("sent" in tags and "inbox" in tags) else False
+
+
+@timeout_loop('archive')
+def wait_for_archive(client, thread_id):
+    thread = client.threads.find(thread_id)
+    tags = [tag.name for tag in thread.tags]
+    if "archive" in tags and "inbox" not in tags:
+        return True
+    return False
+
+
+@timeout_loop('trash')
+def wait_for_trash(client, thread_id):
+    thr = client.get_thread(thread.id)
+    tags = [tag['name'] for tag in thrs.tags]
+    return True if "trash" in tags and "archive" not in tags else False
 
 
 @for_all_available_providers
 def test_sending(client):
-    # Let's send a message to ourselves and check that it arrived.
+    # Create a message and send it to ourselves
+    subject = "%s (Self Send Test)" % strftime("%Y-%m-%d %H:%M:%S")
+    draft = client.drafts.create(to=[{"email": client.email_address}],
+                                 subject=subject,
+                                 body="Test email.")
+    draft.send()
+    wait_for_send(client, subject)
 
-    subject = "Test email from Inbox - %s" % time.strftime("%H:%M:%S")
-    message = {"to": [{"email": client.email_address}],
-               "body": "This is a test email, disregard this.",
-               "subject": subject}
+    # Archive the message
+    thread = client.threads.where(subject=subject, tag='inbox').first()
+    thread.archive()
+    wait_for_archive(client, thread.id)
 
-    client.send_message(message)
-
-    start_time = time()
-    found_email = False
-    while time() - start_time < TEST_MAX_DURATION_SECS:
-        sleep(TEST_GRANULARITY_CHECK_SECS)
-        threads = client.threads.where(subject=subject)
-        if len(threads) != 2:
-            continue
-
-        tags = [t.name for thread in threads for t in thread.tags]
-        if ("sent" in tags and "inbox" in tags):
-            format_test_result("self_send_test", client.provider,
-                               client.email_address, start_time)
-            found_email = True
-            break
-
-    assert found_email, ("Failed to self send an email in less"
-                         "than {} seconds on account: {}"
-                         .format(TEST_MAX_DURATION_SECS,
-                                 client.email_address))
-
-    # Now let's archive the email.
-
-    threads = client.threads.where(subject=subject)
-    # Note: this uses python's implicit scoping
-    for thread in threads:
-        if "inbox" in thread.tags:
-            break
-
-    threads.first().archive()
-
-    updated_tags = False
-    start_time = time()
-    while time() - start_time < TEST_MAX_DURATION_SECS:
-        sleep(TEST_GRANULARITY_CHECK_SECS)
-        thr = client.threads.find(thread.id)
-
-        tags = [tag.name for tag in thr.tags]
-        if "archive" in tags and "inbox" not in tags:
-            format_test_result("archive_test", client.provider,
-                               client.email_address, start_time)
-            updated_tags = True
-            break
-
-    assert updated_tags, ("Failed to archive an email in less"
-                         "than {} seconds on account: {}"
-                         .format(TEST_MAX_DURATION_SECS,
-                                 client.email_address))
-
+    # Trash the message
     threads.first().trash()
-
-    updated_tags = False
-    start_time = time()
-    while time() - start_time < TEST_MAX_DURATION_SECS:
-        sleep(TEST_GRANULARITY_CHECK_SECS)
-        thr = client.get_thread(thread.id)
-
-        if "trash" in thr.tags and "archive" not in thr.tags:
-            format_test_result("move_to_trash_test", client.provider,
-                               client.email_address, start_time)
-            updated_tags = True
-            break
-
-    assert updated_tags, ("Failed to move an email to trash in less"
-                         "than {} seconds on account: {}"
-                         .format(TEST_MAX_DURATION_SECS,
-                                 client.email_address))
+    wait_for_trash(client, thread.id)
 
 
 if __name__ == '__main__':
