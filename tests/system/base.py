@@ -24,7 +24,7 @@ from client import InboxTestClient
 def timeout_loop(name):
     def wrap(f):
         def wrapped_f(*args, **kwargs):
-            client=args[0]
+            client = args[0]
             print "Waiting for: {}...".format(name)
             success = False
             start_time = time()

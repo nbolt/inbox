@@ -1,6 +1,3 @@
-import requests
-import json
-from collections import namedtuple
 from conftest import API_BASE
 from inbox import APIClient
 

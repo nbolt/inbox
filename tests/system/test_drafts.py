@@ -3,13 +3,12 @@ import pytest
 import time
 from inbox.client.errors import NotFoundError
 from base import for_all_available_providers, timeout_loop
-from conftest import TEST_MAX_DURATION_SECS, TEST_GRANULARITY_CHECK_SECS
 
 
 @timeout_loop('file')
 def wait_for_file(client, file_id):
     try:
-        file_obj = client.files.find(file_id)
+        client.files.find(file_id)
         return True
     except NotFoundError:
         return False
@@ -18,7 +17,8 @@ def wait_for_file(client, file_id):
 @timeout_loop('draft')
 def wait_for_draft(client, draft_id):
     try:
-        return client.drafts.find(draft_id)
+        client.drafts.find(draft_id)
+        return True
     except NotFoundError:
         return False
 
@@ -26,7 +26,7 @@ def wait_for_draft(client, draft_id):
 @timeout_loop('draft_removed')
 def check_draft_is_removed(client, draft_id):
     try:
-        draft = client.drafts.find(draft_id)
+        client.drafts.find(draft_id)
         return False
     except NotFoundError:
         return True

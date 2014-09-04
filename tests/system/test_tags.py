@@ -2,7 +2,6 @@
 import pytest
 import random
 from datetime import datetime
-from inbox.client.errors import NotFoundError
 from base import for_all_available_providers, timeout_loop
 
 

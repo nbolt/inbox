@@ -44,8 +44,10 @@ def test_sending(client):
 
     # Trash the message
     # Raises notimplementederror
-    #client.threads.first().trash()
-    #wait_for_trash(client, thread.id)
+    # Remove 'False' guard when trashing a message works.
+    if False:
+        client.threads.first().trash()
+        wait_for_trash(client, thread.id)
 
 
 if __name__ == '__main__':
