@@ -6,10 +6,10 @@ from base import for_all_available_providers, timeout_loop
 
 @timeout_loop('send')
 def wait_for_send(client, subject):
-    threads = client.threads.where(subject=subject)
-    if len(threads.all()) != 2:
+    thread_query = client.threads.where(subject=subject)
+    if len(thread_query.all()) != 2:
         return False
-    tags = [t['name'] for thread in threads for t in thread.tags]
+    tags = [t['name'] for thread in thread_query for t in thread.tags]
     return True if ("sent" in tags and "inbox" in tags) else False
 
 
@@ -17,16 +17,14 @@ def wait_for_send(client, subject):
 def wait_for_archive(client, thread_id):
     thread = client.threads.find(thread_id)
     tags = [tag["name"] for tag in thread.tags]
-    if "archive" in tags and "inbox" not in tags:
-        return True
-    return False
+    return True if ("archive" in tags and "inbox" not in tags) else False
 
 
 @timeout_loop('trash')
 def wait_for_trash(client, thread_id):
-    threads = client.threads.find(thread_id)
-    tags = [tag['name'] for tag in threads.tags]
-    return True if "trash" in tags and "archive" not in tags else False
+    thread = client.threads.find(thread_id)
+    tags = [tag['name'] for tag in thread.tags]
+    return True if ("trash" in tags and "archive" not in tags) else False
 
 
 @for_all_available_providers
