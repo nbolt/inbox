@@ -18,9 +18,7 @@ def wait_for_file(client, file_id):
 @timeout_loop('draft')
 def wait_for_draft(client, draft_id):
     try:
-        draft = client.namespaces[0].drafts.find(draft_id)
-        print "FOUND"
-        return True
+        return client.namespaces[0].drafts.find(draft_id)
     except NotFoundError:
         return False
 
