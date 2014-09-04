@@ -9,6 +9,7 @@
 # a gmail account, you test class will inherit E2ETest and GmailMixin.
 from time import time, sleep
 from inbox.auth import handler_from_email
+from inbox.auth.generic import delete_account
 from inbox.util.url import provider_from_address
 from inbox.models.session import session_scope
 from conftest import (passwords, TEST_MAX_DURATION_SECS,
@@ -70,15 +71,15 @@ def for_all_available_providers(fn):
             wait_for_auth(client)
 
             # wait for sync to start. tests rely on things setup at beginning
-            # of sync (e.g. fold hierarchy)
+            # of sync (e.g. folder hierarchy)
             wait_for_sync_start(client)
             start_time = time()
             fn(client, *args, **kwargs)
-            format_test_result(fn.__name__, provider, email, start_time)
+            format_test_result(fn.__name__, provider_from_address(email),
+                               email, start_time)
 
             with session_scope() as db_session:
-                # delete account
-                pass
+                delete_account(db_session, email)
 
     return f
 
