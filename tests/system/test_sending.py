@@ -9,7 +9,7 @@ def wait_for_send(client, subject):
     threads = client.threads.where(subject=subject)
     if len(threads.all()) != 2:
         return False
-    tags = [t.name for thread in threads for t in thread.tags]
+    tags = [t['name'] for thread in threads for t in thread.tags]
     return True if ("sent" in tags and "inbox" in tags) else False
 
 
