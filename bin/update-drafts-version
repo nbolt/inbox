@@ -1,0 +1,91 @@
+#!/usr/bin/env python
+from gevent import monkey
+monkey.patch_all()
+
+import gevent
+from gevent.pool import Group
+from gevent.queue import JoinableQueue
+from sqlalchemy.sql import text
+
+from inbox.ignition import main_engine
+from inbox.util.startup import preflight
+
+
+# TAKE ONE: Causes lock wait timeout for some reason
+def main_one():
+    engine = main_engine(pool_size=1)
+    connection = engine.connect()
+
+    with connection.begin():
+        connection.execute(text("""
+            UPDATE message SET message.version = message.public_id
+            WHERE message.is_draft = 1 AND message.version IS NULL
+            """))
+
+
+# TAKE TWO:
+class DraftsManager(object):
+    def __init__(self, pool_size=50):
+        self.pool_size = pool_size
+        self.worker_pool = Group()
+
+    def run(self):
+        query = """
+        SELECT id FROM message
+        WHERE message.is_draft = 1 AND message.version IS NULL
+        """
+
+        chunk_size = 20
+
+        with engine.connect() as dbconn:
+            draft_ids = [id_ for id_, in dbconn.execute(text(query))]
+            chunked = [draft_ids[i:i + chunk_size] for i in
+                       range(0, len(draft_ids), chunk_size)]
+
+        self.queue = JoinableQueue(items=chunked)
+        print '\n[Manager] len(queue), chunk_size: ', self.queue.qsize(), chunk_size
+
+        for i in range(self.pool_size):
+            worker = DraftsWorker(i, self.queue)
+
+            self.worker_pool.add(worker)
+            worker.start()
+
+        self.queue.join()
+
+
+class DraftsWorker(gevent.Greenlet):
+    def __init__(self, worker_id, queue):
+        self.worker_id = worker_id
+        self.queue = queue
+
+        gevent.Greenlet.__init__(self)
+
+    def _run(self):
+        while True:
+            draft_ids = self.queue.get()
+            print '[Worker {0}] START drafts: {1}', self.worker_id, draft_ids
+
+            with engine.connect() as dbconn:
+                dbconn.execute(text("""
+                    UPDATE message SET message.version = message.public_id
+                    WHERE message.id IN :draft_ids
+                    """), draft_ids=draft_ids)
+
+            print '[Worker {0}] DONE drafts: {1}', self.worker_id, draft_ids
+            self.q.task_done()
+
+
+engine = None
+
+
+if __name__ == '__main__':
+    #main_one()
+
+    global engine
+
+    preflight()
+    engine = main_engine(pool_size=1)
+
+    d = DraftsManager()
+    d.run()
