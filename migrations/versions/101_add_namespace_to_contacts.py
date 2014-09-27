@@ -18,22 +18,15 @@ def upgrade():
     conn = op.get_bind()
     conn.execute(text('''
         ALTER TABLE contact
-            ADD COLUMN namespace_id INTEGER,
-            ADD FOREIGN KEY(namespace_id) REFERENCES namespace (id)
-            '''))
-
+            DROP FOREIGN KEY contact_ibfk_1'''))
     conn.execute(text('''
-        UPDATE contact JOIN namespace ON contact.account_id=namespace.account_id
-        SET contact.namespace_id=namespace.id'''))
+        ALTER TABLE contact
+            CHANGE account_id namespace_id INTEGER NOT NULL'''))
 
     conn.execute(text('''
         ALTER TABLE contact
-            DROP INDEX uid,
-            DROP FOREIGN KEY contact_ibfk_1,
-            ADD CONSTRAINT uid UNIQUE (uid, source, namespace_id, provider_name),
-            DROP COLUMN account_id
+            ADD FOREIGN KEY(namespace_id) REFERENCES namespace (id)
             '''))
-
 
 def downgrade():
     raise Exception()

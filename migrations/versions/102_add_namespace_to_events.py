@@ -18,20 +18,14 @@ def upgrade():
     conn = op.get_bind()
     conn.execute(text('''
         ALTER TABLE event
-            ADD COLUMN namespace_id INTEGER,
-            ADD FOREIGN KEY(namespace_id) REFERENCES namespace (id)
-            '''))
-
+            DROP FOREIGN KEY event_ibfk_1'''))
     conn.execute(text('''
-        UPDATE event JOIN namespace ON event.account_id=namespace.account_id
-        SET event.namespace_id=namespace.id'''))
+        ALTER TABLE event
+            CHANGE account_id namespace_id INTEGER NOT NULL'''))
 
     conn.execute(text('''
         ALTER TABLE event
-            DROP INDEX uuid,
-            DROP FOREIGN KEY event_ibfk_1,
-            ADD CONSTRAINT uuid UNIQUE (uid, source, namespace_id, provider_name),
-            DROP COLUMN account_id
+            ADD FOREIGN KEY(namespace_id) REFERENCES namespace (id)
             '''))
 
 
