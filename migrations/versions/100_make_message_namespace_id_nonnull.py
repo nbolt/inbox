@@ -15,8 +15,9 @@ import sqlalchemy as sa
 
 
 def upgrade():
-    op.alter_column('message', 'namespace_id', existing_type=sa.Integer(),
-                    nullable=False)
+    pass
+#    op.alter_column('message', 'namespace_id', existing_type=sa.Integer(),
+#                    nullable=False)
 
 
 def downgrade():

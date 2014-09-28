@@ -1,0 +1,11 @@
+#!/usr/bin/env python
+
+from sqlalchemy.sql import text
+from inbox.ignition import main_engine
+
+eng = main_engine()
+with eng.begin() as conn:
+    conn.execute(text('''
+        UPDATE message INNER JOIN thread ON message.thread_id=thread.id
+        AND message.namespace_id IS NULL SET
+        message.namespace_id=thread.namespace_id'''))
