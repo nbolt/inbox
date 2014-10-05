@@ -361,6 +361,14 @@ get_default_providers = lambda: {
         "domains": ["mrmail.com"],
         "mx_servers": ["mx.mrmail.com"]
     },
+    "cream.nl": {
+        "type": "generic",
+        "imap": ("imap.cream.nl", 993),
+        "smtp": ("smtp.cream.nl", 587),
+        "auth": "password",
+        "domains": ["cream.nl"],
+        "mx_servers": ["mail.cream.nl"]
+    }
 }
 
 
