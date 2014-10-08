@@ -128,6 +128,7 @@ def create_db_objects(account_id, db_session, log, folder_name, raw_messages,
                                    canonical_name, identifier)
 
     for msg in raw_messages:
+        log.info('Inserting new uid', uid=msg.uid)
         uid = msg_create_fn(db_session, acc, folder, msg)
         # Must ensure message objects are flushed because they reference
         # threads, which may be new, and later messages may need to belong to
