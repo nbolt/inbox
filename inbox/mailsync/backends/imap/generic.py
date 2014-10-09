@@ -271,6 +271,7 @@ class FolderSyncEngine(Greenlet):
             local_uids = set(local_uids) - deleted_uids
             new_uids = set(remote_uids) - local_uids
             download_stack = UIDStack()
+            log.info("uids to download: ", dl_uids=new_uids)
             for uid in sorted(new_uids):
                 download_stack.put(
                     uid, GenericUIDMetadata(throttled=self.throttled))
@@ -311,6 +312,7 @@ class FolderSyncEngine(Greenlet):
             # Defer removing UID from queue until after it's committed to the
             # DB' to avoid races with poll_for_changes().
             uid, metadata = download_stack.peek()
+            log.info("downloading uid", uid=uid)
             self.download_and_commit_uids(crispin_client, self.folder_name,
                                           [uid])
             download_stack.get()
