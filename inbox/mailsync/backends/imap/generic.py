@@ -68,6 +68,7 @@ from datetime import datetime
 
 from gevent import Greenlet, spawn, sleep
 from gevent.queue import LifoQueue
+from gevent.lock import RLock
 from sqlalchemy import desc, func
 from sqlalchemy.orm.exc import NoResultFound
 from sqlalchemy.orm import load_only
@@ -108,6 +109,7 @@ class UIDStack(object):
     be None."""
     def __init__(self):
         self._lifoqueue = LifoQueue()
+        self.lock = RLock()
 
     def empty(self):
         return self._lifoqueue.empty()
@@ -272,9 +274,10 @@ class FolderSyncEngine(Greenlet):
             new_uids = set(remote_uids) - local_uids
             download_stack = UIDStack()
             log.info("uids to download: ", dl_uids=new_uids)
-            for uid in sorted(new_uids):
-                download_stack.put(
-                    uid, GenericUIDMetadata(throttled=self.throttled))
+            with download_stack.lock:
+                for uid in sorted(new_uids):
+                    download_stack.put(
+                        uid, GenericUIDMetadata(throttled=self.throttled))
 
             with mailsync_session_scope() as db_session:
                 self.update_uid_counts(
@@ -311,11 +314,13 @@ class FolderSyncEngine(Greenlet):
         while not download_stack.empty():
             # Defer removing UID from queue until after it's committed to the
             # DB' to avoid races with poll_for_changes().
-            uid, metadata = download_stack.peek()
-            log.info("downloading uid", uid=uid)
-            self.download_and_commit_uids(crispin_client, self.folder_name,
-                                          [uid])
-            download_stack.get()
+            with download_stack.lock:
+                uid, metadata = download_stack.peek()
+                log.info("downloading uid", uid=uid)
+                self.download_and_commit_uids(crispin_client, self.folder_name,
+                                              [uid])
+                download_stack.get()
+
             report_progress(self.account_id, self.folder_name, 1,
                             download_stack.qsize())
             if self.throttled and metadata is not None and metadata.throttled:
@@ -458,15 +463,16 @@ class FolderSyncEngine(Greenlet):
                 local_uids = common.all_uids(self.account_id, db_session,
                                              self.folder_name)
                 # Download new UIDs.
-                stack_uids = {uid for uid, _ in download_stack}
-                local_with_pending_uids = local_uids | stack_uids
-                self.remove_deleted_uids(db_session, local_uids, remote_uids)
-                # filter out messages that have disappeared on the remote side
-                download_stack.discard([item for item in download_stack if
-                                        item[0] not in remote_uids])
-                for uid in sorted(remote_uids):
-                    if uid not in local_with_pending_uids:
-                        download_stack.put(uid, None)
+                with download_stack.lock:
+                    stack_uids = {uid for uid, _ in download_stack}
+                    local_with_pending_uids = local_uids | stack_uids
+                    self.remove_deleted_uids(db_session, local_uids, remote_uids)
+                    # filter out messages that have disappeared on the remote side
+                    download_stack.discard([item for item in download_stack if
+                                            item[0] not in remote_uids])
+                    for uid in sorted(remote_uids):
+                        if uid not in local_with_pending_uids:
+                            download_stack.put(uid, None)
         if not async_download:
             self.download_uids(crispin_client, download_stack)
             with mailsync_session_scope() as db_session:

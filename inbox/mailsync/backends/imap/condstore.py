@@ -92,10 +92,11 @@ class CondstoreFolderSyncEngine(FolderSyncEngine):
                 local_uids = common.all_uids(self.account_id, db_session,
                                              self.folder_name)
                 self.remove_deleted_uids(db_session, local_uids, remote_uids)
-            stack_uids = {uid for uid, _ in download_stack}
-            local_with_pending_uids = local_uids | stack_uids
-            new, updated = new_or_updated(changed_uids,
-                                          local_with_pending_uids)
+            with download_stack.lock:
+                stack_uids = {uid for uid, _ in download_stack}
+                local_with_pending_uids = local_uids | stack_uids
+                new, updated = new_or_updated(changed_uids,
+                                              local_with_pending_uids)
         if changed_uids:
             log.info(new_uid_count=len(new), updated_uid_count=len(updated))
             self.update_metadata(crispin_client, updated)
@@ -112,8 +113,9 @@ class CondstoreFolderSyncEngine(FolderSyncEngine):
 
     def highestmodseq_callback(self, crispin_client, new_uids, updated_uids,
                                download_stack, async_download):
-        for uid in sorted(new_uids):
-            download_stack.put(uid, None)
+        with download_stack.lock:
+            for uid in sorted(new_uids):
+                download_stack.put(uid, None)
         if not async_download:
             self.download_uids(crispin_client, download_stack)
 

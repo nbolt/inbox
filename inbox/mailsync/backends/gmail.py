@@ -138,18 +138,20 @@ class GmailFolderSyncEngine(CondstoreFolderSyncEngine):
             if self.folder_name in uid_download_folders(crispin_client):
                 full_download = self.__deduplicate_message_download(
                     crispin_client, remote_g_metadata, unknown_uids)
-                for uid in sorted(full_download):
-                    download_stack.put(uid, None)
+                with download_stack.lock:
+                    for uid in sorted(full_download):
+                        download_stack.put(uid, None)
                 self.download_uids(crispin_client, download_stack)
             elif self.folder_name in thread_expand_folders(crispin_client):
                 flags = crispin_client.flags(unknown_uids)
-                for uid in sorted(unknown_uids):
-                    if uid in flags:
-                        gmessage = GMessage(uid, remote_g_metadata[uid],
-                                            flags[uid].flags,
-                                            flags[uid].labels,
-                                            throttled=self.throttled)
-                        download_stack.put(uid, gmessage)
+                with download_stack.lock:
+                    for uid in sorted(unknown_uids):
+                        if uid in flags:
+                            gmessage = GMessage(uid, remote_g_metadata[uid],
+                                                flags[uid].flags,
+                                                flags[uid].labels,
+                                                throttled=self.throttled)
+                            download_stack.put(uid, gmessage)
                 # We always download threads via the 'All Mail' folder.
                 crispin_client.select_folder(
                     crispin_client.folder_names()['all'], uidvalidity_cb)
@@ -186,25 +188,28 @@ class GmailFolderSyncEngine(CondstoreFolderSyncEngine):
 
         if self.folder_name in thread_expand_folders(crispin_client):
             flags = crispin_client.flags(to_download)
-            for uid in sorted(to_download):
-                if uid in flags and uid in g_metadata:
-                    # IMAP will just return no data for a UID if it's
-                    # disappeared from the folder in the meantime.
-                    download_stack.put(uid, GMessage(uid, g_metadata[uid],
-                                                     flags[uid].flags,
-                                                     flags[uid].labels, False))
-            if not async_download:
-                # Need to select All Mail before doing thread expansion
-                if not self.is_all_mail(crispin_client):
-                    crispin_client.select_folder(
-                        crispin_client.folder_names()['all'], uidvalidity_cb)
-                self.__download_queued_threads(crispin_client, download_stack)
-                if not self.is_all_mail(crispin_client):
-                    crispin_client.select_folder(self.folder_name,
-                                                 uidvalidity_cb)
+            with download_stack.lock:
+                for uid in sorted(to_download):
+                    if uid in flags and uid in g_metadata:
+                        # IMAP will just return no data for a UID if it's
+                        # disappeared from the folder in the meantime.
+                        download_stack.put(uid, GMessage(uid, g_metadata[uid],
+                                                         flags[uid].flags,
+                                                         flags[uid].labels,
+                                                         False))
+                if not async_download:
+                    # Need to select All Mail before doing thread expansion
+                    if not self.is_all_mail(crispin_client):
+                        crispin_client.select_folder(
+                            crispin_client.folder_names()['all'], uidvalidity_cb)
+                    self.__download_queued_threads(crispin_client, download_stack)
+                    if not self.is_all_mail(crispin_client):
+                        crispin_client.select_folder(self.folder_name,
+                                                     uidvalidity_cb)
         elif self.folder_name in uid_download_folders(crispin_client):
-            for uid in sorted(to_download):
-                download_stack.put(uid, None)
+            with download_stack.lock:
+                for uid in sorted(to_download):
+                    download_stack.put(uid, None)
             if not async_download:
                 self.download_uids(crispin_client, download_stack)
         else:
@@ -315,25 +320,29 @@ class GmailFolderSyncEngine(CondstoreFolderSyncEngine):
         # have _every_ message in the thread. We have to expand it and make
         # sure we have all messages.
         while not download_stack.empty():
-            _, message = download_stack.get()
-            # Don't try to re-download any messages that are in the same
-            # thread. (Putting this _before_ the download to guarantee no
-            # context switches happen in the meantime; we _should_
-            # re-download if another message arrives on the thread.)
-            msgs_to_process = [m for _, m in download_stack if
-                               m.g_metadata.thrid ==
-                               message.g_metadata.thrid]
-            msgs_to_process.append(message)
-            download_stack.discard([
-                item for item in download_stack if
-                item[1].g_metadata.thrid == message.g_metadata.thrid])
-            thread_uids = all_mail_crispin_client.expand_thread(
-                message.g_metadata.thrid)
-            thread_g_metadata = all_mail_crispin_client.g_metadata(
-                thread_uids)
-            self.__download_thread(all_mail_crispin_client,
-                                   thread_g_metadata,
-                                   message.g_metadata.thrid, thread_uids)
+            with download_stack.lock:
+                if download_stack.empty():
+                    continue
+                _, message = download_stack.get()
+
+                # Don't try to re-download any messages that are in the same
+                # thread. (Putting this _before_ the download to guarantee no
+                # context switches happen in the meantime; we _should_
+                # re-download if another message arrives on the thread.)
+                msgs_to_process = [m for _, m in download_stack if
+                                   m.g_metadata.thrid ==
+                                   message.g_metadata.thrid]
+                msgs_to_process.append(message)
+                download_stack.discard([
+                    item for item in download_stack if
+                    item[1].g_metadata.thrid == message.g_metadata.thrid])
+                thread_uids = all_mail_crispin_client.expand_thread(
+                    message.g_metadata.thrid)
+                thread_g_metadata = all_mail_crispin_client.g_metadata(
+                    thread_uids)
+                self.__download_thread(all_mail_crispin_client,
+                                       thread_g_metadata,
+                                       message.g_metadata.thrid, thread_uids)
             # In theory we only ever have one Greenlet modifying ImapUid
             # entries for a non-All Mail folder, but grab the lock anyway
             # to be safe.
