@@ -311,15 +311,19 @@ class FolderSyncEngine(Greenlet):
             sleep(self.poll_frequency)
 
     def download_uids(self, crispin_client, download_stack):
+        # Note: we don't the hold lock the whole time because
+        # check_uid_changes may need to rearrange the layout of the stack
         while not download_stack.empty():
-            # Defer removing UID from queue until after it's committed to the
-            # DB' to avoid races with poll_for_changes().
             with download_stack.lock:
-                uid, metadata = download_stack.peek()
+                if download_stack.empty():
+                     # check_uid_changes could have pulled the rug under
+                     # our feet.
+                     continue
+
+                uid, metadata = download_stack.get()
                 log.info("downloading uid", uid=uid)
                 self.download_and_commit_uids(crispin_client, self.folder_name,
                                               [uid])
-                download_stack.get()
 
             report_progress(self.account_id, self.folder_name, 1,
                             download_stack.qsize())
