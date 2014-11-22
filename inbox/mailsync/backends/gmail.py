@@ -37,10 +37,10 @@ from inbox.log import get_logger
 from inbox.models import Message, Folder, Thread, Namespace, Account
 from inbox.models.backends.gmail import GmailAccount
 from inbox.models.backends.imap import ImapFolderInfo, ImapUid, ImapThread
+from inbox.models.session import session_scope
 from inbox.mailsync.backends.base import (create_db_objects,
                                           commit_uids,
                                           MailsyncError,
-                                          mailsync_session_scope,
                                           THROTTLE_WAIT)
 from inbox.mailsync.backends.imap.generic import (
     _pool, uidvalidity_cb, safe_download, report_progress, UIDStack)
@@ -92,13 +92,13 @@ class GmailFolderSyncEngine(CondstoreFolderSyncEngine):
         # change_poller need to be killed when this greenlet is interrupted
         change_poller = None
         try:
-            with mailsync_session_scope() as db_session:
+            with session_scope() as db_session:
                 local_uids = common.all_uids(self.account_id, db_session,
                                              self.folder_name)
             remote_uids = sorted(crispin_client.all_uids(), key=int)
             remote_uid_count = len(remote_uids)
             with self.syncmanager_lock:
-                with mailsync_session_scope() as db_session:
+                with session_scope() as db_session:
                     deleted_uids = self.remove_deleted_uids(
                         db_session, local_uids, remote_uids)
 
@@ -153,7 +153,7 @@ class GmailFolderSyncEngine(CondstoreFolderSyncEngine):
             sleep(self.poll_frequency)
 
     def resync_uids_impl(self):
-        with mailsync_session_scope() as db_session:
+        with session_scope() as db_session:
             imap_folder_info_entry = db_session.query(ImapFolderInfo)\
                 .options(load_only('uidvalidity', 'highestmodseq'))\
                 .filter_by(account_id=self.account_id,
@@ -240,7 +240,7 @@ class GmailFolderSyncEngine(CondstoreFolderSyncEngine):
             Deduplicated UIDs.
 
         """
-        with mailsync_session_scope() as db_session:
+        with session_scope() as db_session:
             local_g_msgids = g_msgids(self.account_id, db_session,
                                       in_={remote_g_metadata[uid].msgid
                                            for uid in uids if uid in
@@ -301,7 +301,7 @@ class GmailFolderSyncEngine(CondstoreFolderSyncEngine):
             # there is the possibility that another green thread has already
             # downloaded some message(s) from this batch... check within the
             # lock
-            with mailsync_session_scope() as db_session:
+            with session_scope() as db_session:
                 raw_messages = self.__deduplicate_message_object_creation(
                     db_session, raw_messages)
                 if not raw_messages:
@@ -367,7 +367,7 @@ class GmailFolderSyncEngine(CondstoreFolderSyncEngine):
                     # detection).
                     log.debug('adding imapuid rows',
                               count=len(msgs_to_process))
-                    with mailsync_session_scope() as db_session:
+                    with session_scope() as db_session:
                         acc = db_session.query(GmailAccount).get(
                             self.account_id)
                         for msg in msgs_to_process:
@@ -380,7 +380,7 @@ class GmailFolderSyncEngine(CondstoreFolderSyncEngine):
             if self.throttled and message.throttled:
                 # Check to see if the account's throttled state has been
                 # modified. If so, immediately accelerate.
-                with mailsync_session_scope() as db_session:
+                with session_scope() as db_session:
                     acc = db_session.query(Account).get(self.account_id)
                     self.throttled = acc.throttled
                 log.debug('throttled; sleeping')
@@ -508,7 +508,7 @@ def add_new_imapuids(crispin_client, remote_g_metadata, syncmanager_lock,
     flags = crispin_client.flags(uids)
 
     with syncmanager_lock:
-        with mailsync_session_scope() as db_session:
+        with session_scope() as db_session:
             # Since we prioritize download for messages in certain threads, we
             # may already have ImapUid entries despite calling this method.
             local_folder_uids = {uid for uid, in

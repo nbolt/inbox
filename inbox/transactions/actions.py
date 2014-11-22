@@ -162,7 +162,7 @@ def syncback_worker(semaphore, action, action_log_id, record_id, account_id,
         # delete a draft, we still need to access the object to delete it
         # on the remote.
         try:
-            with session_scope(ignore_soft_deletes=False) as db_session:
+            with session_scope() as db_session:
                 if extra_args:
                     func(account_id, record_id, db_session, extra_args)
                 else:

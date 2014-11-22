@@ -140,7 +140,7 @@ def tag_query_api():
     else:
         query = g.db_session.query(Tag)
 
-    query = query.filter(Tag.namespace_id == g.namespace.id)
+    query = query.filter(Tag.namespace_id == g.namespace.id).order_by(Tag.id)
 
     if args['tag_name']:
         query = query.filter_by(name=args['tag_name'])
@@ -797,9 +797,8 @@ def event_delete_api(public_id):
         return err(404, 'Cannot delete event with public_id {} from '
                    ' read_only calendar.'.format(public_id))
 
-    result = events.crud.delete(g.namespace, g.db_session, public_id)
     schedule_action('delete_event', event, g.namespace.id, g.db_session)
-    return g.encoder.jsonify(result)
+    return g.encoder.jsonify(None)
 
 
 #

@@ -13,9 +13,6 @@ from inbox.mailsync.exc import SyncException
 
 THROTTLE_WAIT = 60
 
-mailsync_session_scope = functools.partial(session_scope,
-                                           ignore_soft_deletes=False)
-
 
 class MailsyncError(Exception):
     pass

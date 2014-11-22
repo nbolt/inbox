@@ -32,16 +32,14 @@ def upgrade():
     class EASAccount(Base):
         __table__ = Base.metadata.tables['easaccount']
         primary_device = sa.orm.relationship(
-        'EASDevice', primaryjoin='and_(EASAccount.primary_device_id == EASDevice.id, '
-        'EASDevice.deleted_at.is_(None))', uselist=False)
+        'EASDevice', uselist=False)
         secondary_device = sa.orm.relationship(
-        'EASDevice', primaryjoin='and_(EASAccount.secondary_device_id == EASDevice.id, '
-        'EASDevice.deleted_at.is_(None))', uselist=False)
+        'EASDevice', uselist=False)
 
     class EASDevice(Base):
         __table__ = Base.metadata.tables['easdevice']
 
-    with session_scope(ignore_soft_deletes=False, versioned=False) as \
+    with session_scope(versioned=False) as \
             db_session:
 
         accts = db_session.query(EASAccount).all()

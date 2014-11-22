@@ -40,3 +40,4 @@ def delete_event(account_id, event_id, db_session):
          remote_delete_event
 
     remote_delete_event(account, event, db_session)
+    db_session.delete(event)

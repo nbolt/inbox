@@ -182,12 +182,10 @@ class TestDB(object):
                                                    self.dumpfile)
         subprocess.check_call(cmd, shell=True)
 
-    def new_session(self, ignore_soft_deletes=True):
+    def new_session(self):
         from inbox.models.session import InboxSession
         self.session.close()
-        self.session = InboxSession(self.engine,
-                                    versioned=False,
-                                    ignore_soft_deletes=ignore_soft_deletes)
+        self.session = InboxSession(self.engine, versioned=False)
 
     def teardown(self):
         """

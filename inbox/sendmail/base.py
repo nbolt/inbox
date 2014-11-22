@@ -161,8 +161,6 @@ def delete_draft(db_session, account, draft_public_id):
 
     assert draft.is_draft
 
-    db_session.delete(draft)
-
     # Remove the drafts tag from the thread if there are no more drafts.
     if not draft.thread.drafts:
         draft.thread.remove_tag(draft.namespace.tags['drafts'])

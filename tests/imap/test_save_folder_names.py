@@ -1,8 +1,8 @@
 import pytest
-from inbox.mailsync.backends.base import (save_folder_names,
-mailsync_session_scope)
+from inbox.mailsync.backends.base import save_folder_names
 from inbox.models import Folder
 from inbox.models.backends.imap import ImapFolderSyncStatus, ImapFolderInfo
+from inbox.models.session import session_scope
 from inbox.log import get_logger
 
 ACCOUNT_ID = 1
@@ -40,7 +40,7 @@ def add_imap_status_info_rows(folder_id, account_id, db_session):
 
 
 def test_save_folder_names(db, folder_name_mapping):
-    with mailsync_session_scope() as db_session:
+    with session_scope() as db_session:
         log = get_logger()
         save_folder_names(log, ACCOUNT_ID, folder_name_mapping, db_session)
         saved_folder_names = {name for name, in
@@ -54,7 +54,7 @@ def test_save_folder_names(db, folder_name_mapping):
 def test_sync_folder_deletes(db, folder_name_mapping):
     """Test that folder deletions properly cascade to deletions of
     ImapFoldSyncStatus and ImapFolderInfo."""
-    with mailsync_session_scope() as db_session:
+    with session_scope() as db_session:
         log = get_logger()
         save_folder_names(log, ACCOUNT_ID, folder_name_mapping, db_session)
         folders = db_session.query(Folder).filter_by(account_id=ACCOUNT_ID)

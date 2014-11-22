@@ -30,7 +30,7 @@ recalc_after = 120
 
 @app.before_request
 def start():
-    g.db_session = InboxSession(engine, ignore_soft_deletes=False)
+    g.db_session = InboxSession(engine)
 
 
 @app.after_request

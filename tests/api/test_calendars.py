@@ -207,10 +207,6 @@ def test_add_to_specific_calendar(db, api_client):
 
     assert len(event_list) == 1
 
-    cal = db.session.query(Calendar).filter_by(public_id=cal_id).one()
-    db.session.delete(cal)
-    db.session.commit()
-
 
 def test_add_to_read_only_calendar(db, api_client):
     acct = db.session.query(Account).filter_by(id=ACCOUNT_ID).one()

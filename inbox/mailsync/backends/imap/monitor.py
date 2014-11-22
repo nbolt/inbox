@@ -7,10 +7,10 @@ from inbox.models.util import db_write_lock
 from inbox.mailsync.backends.base import BaseMailSyncMonitor
 from inbox.mailsync.backends.base import (save_folder_names,
                                           MailsyncError,
-                                          mailsync_session_scope,
                                           thread_polling, thread_finished)
 from inbox.mailsync.backends.imap.generic import _pool, FolderSyncEngine
 from inbox.mailsync.backends.imap.condstore import CondstoreFolderSyncEngine
+from inbox.models.session import session_scope
 log = get_logger()
 
 
@@ -59,7 +59,7 @@ class ImapSyncMonitor(BaseMailSyncMonitor):
         and save Folder objects for folders on the IMAP backend. Returns a list
         of tuples (folder_name, folder_id) for each folder we want to sync (in
         order)."""
-        with mailsync_session_scope() as db_session:
+        with session_scope() as db_session:
             with _pool(self.account_id).get() as crispin_client:
                 sync_folders = crispin_client.sync_folders()
                 save_folder_names(log, self.account_id,

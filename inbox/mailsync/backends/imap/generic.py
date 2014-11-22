@@ -88,8 +88,8 @@ from inbox.mailsync.exc import UidInvalid
 from inbox.mailsync.backends.imap import common
 from inbox.mailsync.backends.base import (create_db_objects,
                                           commit_uids, MailsyncDone,
-                                          mailsync_session_scope,
                                           THROTTLE_WAIT)
+from inbox.models.session import session_scope
 from inbox.status.sync import SyncStatus
 
 GenericUIDMetadata = namedtuple('GenericUIDMetadata', 'throttled')
@@ -154,7 +154,7 @@ class FolderSyncEngine(Greenlet):
         self.state = None
         self.provider_name = provider_name
 
-        with mailsync_session_scope() as db_session:
+        with session_scope() as db_session:
             account = db_session.query(Account).get(self.account_id)
             self.throttled = account.throttled
             self.namespace_id = account.namespace.id
@@ -212,7 +212,7 @@ class FolderSyncEngine(Greenlet):
             # killed between the end of the handler and the commit.
             if self.state != old_state:
                 # Don't need to re-query, will auto refresh on re-associate.
-                with mailsync_session_scope() as db_session:
+                with session_scope() as db_session:
                     db_session.add(saved_folder_status)
                     saved_folder_status.state = self.state
                     db_session.commit()
@@ -220,7 +220,7 @@ class FolderSyncEngine(Greenlet):
                 return
 
     def _load_state(self):
-        with mailsync_session_scope() as db_session:
+        with session_scope() as db_session:
             try:
                 state = ImapFolderSyncStatus.state
                 saved_folder_status = db_session.query(ImapFolderSyncStatus)\
@@ -269,7 +269,7 @@ class FolderSyncEngine(Greenlet):
             assert crispin_client.selected_folder_name == self.folder_name
             remote_uids = crispin_client.all_uids()
             with self.syncmanager_lock:
-                with mailsync_session_scope() as db_session:
+                with session_scope() as db_session:
                     local_uids = common.all_uids(self.account_id, db_session,
                                                  self.folder_name)
                     deleted_uids = self.remove_deleted_uids(
@@ -282,7 +282,7 @@ class FolderSyncEngine(Greenlet):
                 download_stack.put(
                     uid, GenericUIDMetadata(throttled=self.throttled))
 
-            with mailsync_session_scope() as db_session:
+            with session_scope() as db_session:
                 self.update_uid_counts(
                     db_session,
                     remote_uid_count=len(remote_uids),
@@ -330,7 +330,7 @@ class FolderSyncEngine(Greenlet):
             if self.throttled and metadata is not None and metadata.throttled:
                 # Check to see if the account's throttled state has been
                 # modified. If so, immediately accelerate.
-                with mailsync_session_scope() as db_session:
+                with session_scope() as db_session:
                     acc = db_session.query(Account).get(self.account_id)
                     self.throttled = acc.throttled
                 if self.throttled:
@@ -431,7 +431,7 @@ class FolderSyncEngine(Greenlet):
         if not raw_messages:
             return 0
         with self.syncmanager_lock:
-            with mailsync_session_scope() as db_session:
+            with session_scope() as db_session:
                 new_imapuids = create_db_objects(
                     self.account_id, db_session, log, folder_name,
                     raw_messages, self.create_message)
@@ -448,7 +448,7 @@ class FolderSyncEngine(Greenlet):
             # sync.
             uids = [uid for uid in uids if uid in new_flags]
             with self.syncmanager_lock:
-                with mailsync_session_scope() as db_session:
+                with session_scope() as db_session:
                     common.update_metadata(self.account_id, db_session,
                                            self.folder_name, self.folder_id,
                                            uids, new_flags)
@@ -471,7 +471,7 @@ class FolderSyncEngine(Greenlet):
                           async_download):
         remote_uids = set(crispin_client.all_uids())
         with self.syncmanager_lock:
-            with mailsync_session_scope() as db_session:
+            with session_scope() as db_session:
                 local_uids = common.all_uids(self.account_id, db_session,
                                              self.folder_name)
                 # Download new UIDs.
@@ -486,7 +486,7 @@ class FolderSyncEngine(Greenlet):
                 self.remove_deleted_uids(db_session, local_uids, remote_uids)
         if not async_download:
             self.download_uids(crispin_client, download_stack)
-            with mailsync_session_scope() as db_session:
+            with session_scope() as db_session:
                 self.update_uid_counts(
                     db_session,
                     remote_uid_count=len(remote_uids),
@@ -499,7 +499,7 @@ class FolderSyncEngine(Greenlet):
 def uidvalidity_cb(account_id, folder_name, select_info):
     assert folder_name is not None and select_info is not None, \
         "must start IMAP session before verifying UIDVALIDITY"
-    with mailsync_session_scope() as db_session:
+    with session_scope() as db_session:
         saved_folder_info = common.get_folder_info(account_id, db_session,
                                                    folder_name)
         saved_uidvalidity = or_none(saved_folder_info, lambda i:
@@ -532,7 +532,7 @@ def report_progress(account_id, folder_name, downloaded_uid_count,
                     num_remaining_messages):
     """ Inform listeners of sync progress. """
 
-    with mailsync_session_scope() as db_session:
+    with session_scope() as db_session:
         saved_status = db_session.query(ImapFolderSyncStatus).join(Folder)\
             .filter(
                 ImapFolderSyncStatus.account_id == account_id,

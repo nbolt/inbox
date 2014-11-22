@@ -170,7 +170,7 @@ def save_draft(account_id, message_id, db_session):
 
 
 def delete_draft(account_id, draft_id, db_session, args):
-    """ Delete a draft from the remote backend. """
+    """Delete a draft."""
     inbox_uid = args.get('inbox_uid')
     account = db_session.query(Account).get(account_id)
 
@@ -187,6 +187,8 @@ def delete_draft(account_id, draft_id, db_session, args):
             module_registry[account.provider].remote_delete_draft
         remote_delete_draft(account, account.drafts_folder.name,
                             inbox_uid, db_session)
+
+    db_session.delete(draft)
 
 
 def save_sent_email(account_id, message_id, db_session):
