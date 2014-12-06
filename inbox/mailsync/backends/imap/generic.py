@@ -64,7 +64,6 @@ sessions reduce scalability.
 """
 from __future__ import division
 
-from collections import namedtuple
 from datetime import datetime
 
 from gevent import Greenlet, spawn, sleep
@@ -91,8 +90,6 @@ from inbox.mailsync.backends.base import (create_db_objects,
                                           mailsync_session_scope,
                                           THROTTLE_WAIT)
 from inbox.status.sync import SyncStatus
-
-GenericUIDMetadata = namedtuple('GenericUIDMetadata', 'throttled')
 
 MAX_THREAD_LENGTH = 500
 
@@ -173,10 +170,6 @@ class FolderSyncEngine(Greenlet):
         self.sync_status = SyncStatus(self.account_id, self.folder_id)
         self.sync_status.publish(provider_name=self.provider_name,
                                  folder_name=self.folder_name)
-
-    @property
-    def should_block(self):
-        return True
 
     def _run(self):
         # Bind greenlet-local logging context.
@@ -280,7 +273,7 @@ class FolderSyncEngine(Greenlet):
             download_stack = UIDStack()
             for uid in sorted(new_uids):
                 download_stack.put(
-                    uid, GenericUIDMetadata(throttled=self.throttled))
+                    uid, self.throttled)
 
             with mailsync_session_scope() as db_session:
                 self.update_uid_counts(
@@ -321,13 +314,13 @@ class FolderSyncEngine(Greenlet):
             self.sync_status.publish()
             # Defer removing UID from queue until after it's committed to the
             # DB' to avoid races with poll_for_changes().
-            uid, metadata = download_stack.peek()
+            uid, throttled = download_stack.peek()
             self.download_and_commit_uids(crispin_client, self.folder_name,
                                           [uid])
             download_stack.get()
             report_progress(self.account_id, self.folder_name, 1,
                             download_stack.qsize())
-            if self.throttled and metadata is not None and metadata.throttled:
+            if self.throttled and throttled:
                 # Check to see if the account's throttled state has been
                 # modified. If so, immediately accelerate.
                 with mailsync_session_scope() as db_session:
