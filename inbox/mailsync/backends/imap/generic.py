@@ -83,7 +83,7 @@ log = get_logger()
 from inbox.crispin import connection_pool, retry_crispin
 from inbox.models import Folder, Account, Message
 from inbox.models.backends.imap import (ImapFolderSyncStatus, ImapThread,
-                                        ImapUid)
+                                        ImapUid, ImapFolderInfo)
 from inbox.mailsync.exc import UidInvalid
 from inbox.mailsync.backends.imap import common
 from inbox.mailsync.backends.base import (create_db_objects,
@@ -93,6 +93,7 @@ from inbox.mailsync.backends.base import (create_db_objects,
 from inbox.status.sync import SyncStatus
 
 GenericUIDMetadata = namedtuple('GenericUIDMetadata', 'throttled')
+
 
 MAX_THREAD_LENGTH = 500
 
@@ -173,10 +174,6 @@ class FolderSyncEngine(Greenlet):
         self.sync_status = SyncStatus(self.account_id, self.folder_id)
         self.sync_status.publish(provider_name=self.provider_name,
                                  folder_name=self.folder_name)
-
-    @property
-    def should_block(self):
-        return True
 
     def _run(self):
         # Bind greenlet-local logging context.
@@ -280,7 +277,7 @@ class FolderSyncEngine(Greenlet):
             download_stack = UIDStack()
             for uid in sorted(new_uids):
                 download_stack.put(
-                    uid, GenericUIDMetadata(throttled=self.throttled))
+                    uid, GenericUIDMetadata(self.throttled))
 
             with mailsync_session_scope() as db_session:
                 self.update_uid_counts(
@@ -305,6 +302,20 @@ class FolderSyncEngine(Greenlet):
         sleep(self.poll_frequency)
 
     def resync_uids_impl(self):
+        # First check if the changed UIDVALIDITY we got from the remote was
+        # spurious.
+        with mailsync_session_scope() as db_session:
+            imap_folder_info_entry = db_session.query(ImapFolderInfo). \
+                filter(ImapFolderInfo.account_id == self.account_id,
+                       ImapFolderInfo.folder_id == self.folder_id).one()
+            saved_uidvalidity = imap_folder_info_entry.uidvalidity
+        with self.conn_pool.get() as crispin_client:
+            crispin_client.select_folder(self.folder_name, lambda *args: True)
+            if crispin_client.selected_uidvalidity <= saved_uidvalidity:
+                log.debug('UIDVALIDITY unchanged')
+                return
+
+        # TODO: Implement actual UID resync.
         raise NotImplementedError
 
     @retry_crispin
@@ -318,7 +329,6 @@ class FolderSyncEngine(Greenlet):
 
     def download_uids(self, crispin_client, download_stack):
         while not download_stack.empty():
-            self.sync_status.publish()
             # Defer removing UID from queue until after it's committed to the
             # DB' to avoid races with poll_for_changes().
             uid, metadata = download_stack.peek()
@@ -327,6 +337,7 @@ class FolderSyncEngine(Greenlet):
             download_stack.get()
             report_progress(self.account_id, self.folder_name, 1,
                             download_stack.qsize())
+            self.sync_status.publish()
             if self.throttled and metadata is not None and metadata.throttled:
                 # Check to see if the account's throttled state has been
                 # modified. If so, immediately accelerate.
@@ -505,7 +516,6 @@ def uidvalidity_cb(account_id, folder_name, select_info):
         saved_uidvalidity = or_none(saved_folder_info, lambda i:
                                     i.uidvalidity)
     selected_uidvalidity = select_info['UIDVALIDITY']
-
     if saved_folder_info:
         is_valid = common.uidvalidity_valid(account_id,
                                             selected_uidvalidity,

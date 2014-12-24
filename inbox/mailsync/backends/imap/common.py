@@ -30,7 +30,9 @@ def all_uids(account_id, session, folder_name):
 def _folders_for_labels(g_labels, account, db_session):
     """Given a set of Gmail label strings, return the set of associated Folder
     objects. Creates new (un-added, uncommitted) Folder instances if needed."""
-    labels = {l.lstrip('\\').lower() for l in g_labels}
+    # Elements of g_labels may not have unicode type (in particular, if you
+    # have a numeric label, e.g., '42'), so we need to coerce to unicode.
+    labels = {unicode(l).lstrip('\\').lower() for l in g_labels}
 
     # The problem here is that Gmail's attempt to squash labels and
     # IMAP folders into the same abstraction doesn't work perfectly. In
@@ -124,6 +126,7 @@ def update_metadata(account_id, session, folder_name, folder_id, uids,
             item.update_imap_flags(flags, labels)
 
             unread_status_changed = item.message.is_read != item.is_seen
+            draft_status_changed = item.message.is_draft != item.is_draft
 
             item.message.is_draft = item.is_draft
             item.message.is_read = item.is_seen
@@ -135,6 +138,12 @@ def update_metadata(account_id, session, folder_name, folder_id, uids,
                     thread.apply_tag(unread_tag)
                 elif all(m.is_read for m in thread.messages):
                     thread.remove_tag(unread_tag)
+
+            if draft_status_changed:
+                if not item.is_draft:
+                    item.message.state = 'sent'
+                else:
+                    item.message.state = 'draft'
 
         for thread in affected_threads:
             recompute_thread_labels(thread, session)
@@ -250,6 +259,8 @@ def create_imap_message(db_session, log, account, folder, msg):
     imapuid.update_imap_flags(msg.flags, msg.g_labels)
 
     new_msg.is_draft = imapuid.is_draft
+    if imapuid.is_draft:
+        new_msg.state = 'draft'
     new_msg.is_read = imapuid.is_seen
 
     update_contacts_from_message(db_session, new_msg, account.namespace)

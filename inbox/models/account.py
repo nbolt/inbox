@@ -57,6 +57,11 @@ class Account(MailSyncBase, HasPublicID, HasEmailAddress):
     # local flags & data
     save_raw_messages = Column(Boolean, server_default=true())
 
+    # if True we sync contacts/events
+    # NOTE: these columns are meaningless for EAS accounts
+    sync_contacts = Column(Boolean, nullable=False, default=False)
+    sync_events = Column(Boolean, nullable=False, default=False)
+
     last_synced_contacts = Column(DateTime, nullable=True)
     last_synced_events = Column(DateTime, nullable=True)
 
@@ -67,73 +72,55 @@ class Account(MailSyncBase, HasPublicID, HasEmailAddress):
     inbox_folder_id = Column(Integer,
                              ForeignKey(Folder.id, ondelete='SET NULL'),
                              nullable=True)
-    inbox_folder = relationship(
-        'Folder', post_update=True,
-        primaryjoin='and_(Account.inbox_folder_id == Folder.id, '
-                    'Folder.deleted_at.is_(None))')
+    inbox_folder = relationship('Folder', post_update=True,
+                                foreign_keys=[inbox_folder_id])
     sent_folder_id = Column(Integer,
                             ForeignKey(Folder.id, ondelete='SET NULL'),
                             nullable=True)
-    sent_folder = relationship(
-        'Folder', post_update=True,
-        primaryjoin='and_(Account.sent_folder_id == Folder.id, '
-                    'Folder.deleted_at.is_(None))')
+    sent_folder = relationship('Folder', post_update=True,
+                               foreign_keys=[sent_folder_id])
 
     drafts_folder_id = Column(Integer,
                               ForeignKey(Folder.id, ondelete='SET NULL'),
                               nullable=True)
-    drafts_folder = relationship(
-        'Folder', post_update=True,
-        primaryjoin='and_(Account.drafts_folder_id == Folder.id, '
-                    'Folder.deleted_at.is_(None))')
+    drafts_folder = relationship('Folder', post_update=True,
+                                 foreign_keys=[drafts_folder_id])
 
     spam_folder_id = Column(Integer,
                             ForeignKey(Folder.id, ondelete='SET NULL'),
                             nullable=True)
-    spam_folder = relationship(
-        'Folder', post_update=True,
-        primaryjoin='and_(Account.spam_folder_id == Folder.id, '
-                    'Folder.deleted_at.is_(None))')
+    spam_folder = relationship('Folder', post_update=True,
+                               foreign_keys=[spam_folder_id])
 
     trash_folder_id = Column(Integer,
                              ForeignKey(Folder.id, ondelete='SET NULL'),
                              nullable=True)
-    trash_folder = relationship(
-        'Folder', post_update=True,
-        primaryjoin='and_(Account.trash_folder_id == Folder.id, '
-                    'Folder.deleted_at.is_(None))')
+    trash_folder = relationship('Folder', post_update=True,
+                                foreign_keys=[trash_folder_id])
 
     archive_folder_id = Column(Integer,
                                ForeignKey(Folder.id, ondelete='SET NULL'),
                                nullable=True)
-    archive_folder = relationship(
-        'Folder', post_update=True,
-        primaryjoin='and_(Account.archive_folder_id == Folder.id, '
-                    'Folder.deleted_at.is_(None))')
+    archive_folder = relationship('Folder', post_update=True,
+                                  foreign_keys=[archive_folder_id])
 
     all_folder_id = Column(Integer,
                            ForeignKey(Folder.id, ondelete='SET NULL'),
                            nullable=True)
-    all_folder = relationship(
-        'Folder', post_update=True,
-        primaryjoin='and_(Account.all_folder_id == Folder.id, '
-                    'Folder.deleted_at.is_(None))')
+    all_folder = relationship('Folder', post_update=True,
+                              foreign_keys=[all_folder_id])
 
     starred_folder_id = Column(Integer,
                                ForeignKey(Folder.id, ondelete='SET NULL'),
                                nullable=True)
-    starred_folder = relationship(
-        'Folder', post_update=True,
-        primaryjoin='and_(Account.starred_folder_id == Folder.id, '
-                    'Folder.deleted_at.is_(None))')
+    starred_folder = relationship('Folder', post_update=True,
+                                  foreign_keys=[starred_folder_id])
 
     important_folder_id = Column(Integer,
                                  ForeignKey(Folder.id, ondelete='SET NULL'),
                                  nullable=True)
-    important_folder = relationship(
-        'Folder', post_update=True,
-        primaryjoin='and_(Account.important_folder_id == Folder.id, '
-                    'Folder.deleted_at.is_(None))')
+    important_folder = relationship('Folder', post_update=True,
+                                    foreign_keys=[important_folder_id])
 
     default_calendar_id = Column(Integer,
                                  ForeignKey('calendar.id',
@@ -142,10 +129,7 @@ class Account(MailSyncBase, HasPublicID, HasEmailAddress):
                                             name='account_ibfk_10'),
                                  nullable=True)
 
-    _default_calendar = relationship(
-        'Calendar', post_update=True,
-        primaryjoin='and_(Account.default_calendar_id == Calendar.id, '
-                    'Calendar.deleted_at.is_(None))')
+    _default_calendar = relationship('Calendar', post_update=True)
 
     @property
     def default_calendar(self):

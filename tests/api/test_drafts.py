@@ -2,6 +2,7 @@
 sending."""
 import json
 import os
+import time
 from datetime import datetime
 
 import gevent
@@ -246,6 +247,30 @@ def test_delete_draft(api_client):
     drafts = api_client.get_data('/drafts')
     assert not drafts
 
+    # Check that no orphaned threads are around
+    threads = api_client.get_data('/threads?subject=parent%20draft')
+    assert not threads
+    threads = api_client.get_data('/threads?subject=updated%20draft')
+    assert not threads
+
+    # And check that threads aren't deleted if they still have messages.
+    thread_public_id = api_client.get_data('/threads')[0]['id']
+    reply_draft = {
+        'subject': 'test reply',
+        'body': 'test reply',
+        'thread_id': thread_public_id
+    }
+    r = api_client.post_data('/drafts', reply_draft)
+    public_id = json.loads(r.data)['id']
+    version = json.loads(r.data)['version']
+    thread = api_client.get_data('/threads/{}'.format(thread_public_id))
+    assert 'drafts' in [t['name'] for t in thread['tags']]
+    api_client.delete('/drafts/{}'.format(public_id),
+                      {'version': version})
+    thread = api_client.get_data('/threads/{}'.format(thread_public_id))
+    assert thread
+    assert 'drafts' not in [t['name'] for t in thread['tags']]
+
 
 def test_delete_remote_draft(db, api_client):
     from inbox.models.message import Message
@@ -310,9 +335,13 @@ def test_handle_sending_failures(patch_network_functions, api_client,
                                  syncback_service):
     r = api_client.post_data('/send', {'to': [{'email': 'fail@example.com'}]})
     draft_public_id = json.loads(r.data)['id']
-    gevent.sleep(2)
-    r = api_client.get_data('/drafts/{}'.format(draft_public_id))
-    assert r['state'] == 'sending failed'
+    start = time.time()
+    while time.time() - start < 10:
+        r = api_client.get_data('/drafts/{}'.format(draft_public_id))
+        if r['state'] == 'sending failed':
+            return
+        gevent.sleep()
+    assert False, 'sending not marked as failed before timeout'
 
 
 def test_conflicting_updates(api_client):

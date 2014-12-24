@@ -26,10 +26,7 @@ class OAuthAccount(object):
 
     @declared_attr
     def secret(cls):
-        return relationship(
-            'Secret', uselist=False, primaryjoin='and_('
-            '{0}.refresh_token_id == Secret.id, '
-            'Secret.deleted_at.is_(None))'.format(cls.__name__))
+        return relationship('Secret', uselist=False)
 
     @property
     def refresh_token(self):
@@ -79,7 +76,7 @@ class OAuthAccount(object):
             tok, expires = __volatile_tokens__[self.id]
             return expires
         else:
-            self.access_token()
+            self.access_token
             tok, expires = __volatile_tokens__[self.id]
             return expires
 

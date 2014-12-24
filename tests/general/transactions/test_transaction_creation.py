@@ -103,26 +103,8 @@ def test_event_insert_creates_transaction(db):
             assert transaction.command == 'insert'
 
 
-def test_participant_update_creates_transaction(db):
-    from tests.general.events.default_event import default_event
-    from inbox.models.participant import Participant
+def test_object_deletions_create_transaction(db):
     with session_scope() as db_session:
-        with db_session.no_autoflush:
-            event = default_event(db_session)
-            participant = Participant(email_address="foo@example.com")
-            event.participants = [participant]
-            db_session.commit()
-
-            transaction = get_latest_transaction(db_session, 'event',
-                                                 event.id, NAMESPACE_ID)
-            assert transaction.record_id == event.id
-            assert transaction.object_type == 'event'
-            assert transaction.command == 'update'
-
-
-@pytest.mark.parametrize('ignore_soft_deletes', [True, False])
-def test_object_deletions_create_transaction(db, ignore_soft_deletes):
-    with session_scope(ignore_soft_deletes=ignore_soft_deletes) as db_session:
         with db_session.no_autoflush:
             thr = add_fake_thread(db_session, NAMESPACE_ID)
             msg = add_fake_message(db_session, NAMESPACE_ID, thr)

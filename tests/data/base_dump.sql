@@ -1,8 +1,8 @@
--- MySQL dump 10.13  Distrib 5.5.38, for debian-linux-gnu (x86_64)
+-- MySQL dump 10.13  Distrib 5.5.34, for debian-linux-gnu (x86_64)
 --
 -- Host: localhost    Database: test
 -- ------------------------------------------------------
--- Server version	5.5.38-0ubuntu0.12.04.1-log
+-- Server version	5.5.34-0ubuntu0.12.04.1-log
 
 /*!40101 SET @OLD_CHARACTER_SET_CLIENT=@@CHARACTER_SET_CLIENT */;
 /*!40101 SET @OLD_CHARACTER_SET_RESULTS=@@CHARACTER_SET_RESULTS */;
@@ -50,6 +50,8 @@ CREATE TABLE `account` (
   `default_calendar_id` int(11) DEFAULT NULL,
   `throttled` tinyint(1) DEFAULT '0',
   `name` varchar(256) NOT NULL DEFAULT '',
+  `sync_contacts` tinyint(1) NOT NULL,
+  `sync_events` tinyint(1) NOT NULL,
   PRIMARY KEY (`id`),
   KEY `ix_account_public_id` (`public_id`),
   KEY `account_ibfk_2` (`inbox_folder_id`),
@@ -84,7 +86,7 @@ CREATE TABLE `account` (
 
 LOCK TABLES `account` WRITE;
 /*!40000 ALTER TABLE `account` DISABLE KEYS */;
-INSERT INTO `account` VALUES (1,'ÔøΩÔøΩÔøΩÔøΩhPID',1,'precise64','2014-05-03 01:15:03','gmailaccount',2,4,5,NULL,NULL,NULL,3,NULL,'2014-05-13 02:19:12','2014-08-22 18:02:36',NULL,NULL,NULL,'inboxapptest@gmail.com','inboxapptest@gmail.com',NULL,'{\"sync_start_time\": \"None\", \"sync_end_time\": \"None\"}',NULL,1,0,'Inbox App');
+INSERT INTO `account` VALUES (1,'ÔøΩÔøΩÔøΩÔøΩhPID',1,'precise64','2014-05-03 01:15:03','gmailaccount',2,4,5,NULL,NULL,NULL,3,NULL,'2014-05-13 02:19:12','2014-08-22 18:02:36',NULL,NULL,NULL,'inboxapptest@gmail.com','inboxapptest@gmail.com',NULL,'{\"sync_start_time\": \"None\", \"sync_end_time\": \"None\"}',NULL,1,0,'Inbox App',1,1);
 /*!40000 ALTER TABLE `account` ENABLE KEYS */;
 UNLOCK TABLES;
 
@@ -143,7 +145,7 @@ CREATE TABLE `alembic_version` (
 
 LOCK TABLES `alembic_version` WRITE;
 /*!40000 ALTER TABLE `alembic_version` DISABLE KEYS */;
-INSERT INTO `alembic_version` VALUES ('526eefc1d600');
+INSERT INTO `alembic_version` VALUES ('262436681c4');
 /*!40000 ALTER TABLE `alembic_version` ENABLE KEYS */;
 UNLOCK TABLES;
 
@@ -371,6 +373,45 @@ LOCK TABLES `easdevice` WRITE;
 UNLOCK TABLES;
 
 --
+-- Table structure for table `easeventuid`
+--
+
+DROP TABLE IF EXISTS `easeventuid`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8 */;
+CREATE TABLE `easeventuid` (
+  `created_at` datetime NOT NULL,
+  `updated_at` datetime NOT NULL,
+  `deleted_at` datetime DEFAULT NULL,
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `easaccount_id` int(11) NOT NULL,
+  `event_id` int(11) NOT NULL,
+  `folder_id` int(11) NOT NULL,
+  `fld_uid` int(11) NOT NULL,
+  `msg_uid` int(11) NOT NULL,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uq_folder_id` (`folder_id`,`msg_uid`,`easaccount_id`),
+  KEY `easaccount_id` (`easaccount_id`),
+  KEY `event_id` (`event_id`),
+  KEY `ix_easeventuid_created_at` (`created_at`),
+  KEY `ix_easeventuid_updated_at` (`updated_at`),
+  KEY `ix_easeventuid_deleted_at` (`deleted_at`),
+  CONSTRAINT `easeventuid_ibfk_1` FOREIGN KEY (`easaccount_id`) REFERENCES `easaccount` (`id`) ON DELETE CASCADE,
+  CONSTRAINT `easeventuid_ibfk_2` FOREIGN KEY (`event_id`) REFERENCES `event` (`id`) ON DELETE CASCADE,
+  CONSTRAINT `easeventuid_ibfk_3` FOREIGN KEY (`folder_id`) REFERENCES `folder` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Dumping data for table `easeventuid`
+--
+
+LOCK TABLES `easeventuid` WRITE;
+/*!40000 ALTER TABLE `easeventuid` DISABLE KEYS */;
+/*!40000 ALTER TABLE `easeventuid` ENABLE KEYS */;
+UNLOCK TABLES;
+
+--
 -- Table structure for table `easfoldersync`
 --
 
@@ -550,6 +591,7 @@ CREATE TABLE `event` (
   `is_owner` tinyint(1) NOT NULL,
   `read_only` tinyint(1) NOT NULL,
   `namespace_id` int(11) DEFAULT NULL,
+  `participants_by_email` text NOT NULL,
   PRIMARY KEY (`id`),
   UNIQUE KEY `uuid` (`uid`,`source`,`namespace_id`,`provider_name`),
   KEY `event_ibfk_2` (`calendar_id`),
@@ -565,7 +607,7 @@ CREATE TABLE `event` (
 
 LOCK TABLES `event` WRITE;
 /*!40000 ALTER TABLE `event` DISABLE KEYS */;
-INSERT INTO `event` VALUES (1,'3bd5983f9d1748d0bca5719c57f72815','inbox','p5ßë‹\rD_∂Î ä@Ø◊˝','','desc1','data1','InboxHeadquarters',1,NULL,NULL,'1970-01-01 00:00:01','1970-02-01 00:00:01',0,'local','2014-08-29 01:22:53','2014-08-29 01:22:53',NULL,1,NULL,1,0,1),(2,'b9f18495985f4814a95e28f3e119a730','inbox','◊éÌv‘êAπ‡FcÕVø\n','','desc2','data2','InboxHeadquarters',1,NULL,NULL,'1970-01-01 00:00:01','1970-01-01 00:00:01',0,'local','2014-08-29 01:22:54','2014-08-29 01:22:54',NULL,2,NULL,1,1,1),(3,'c9f18495985f4814a95e28f3e119a730','inbox','◊éÌv‘êAπjFcÕVø\n','','desc5','data3','InboxHeadquarters',1,NULL,NULL,'1970-02-01 00:00:01','1970-03-01 00:00:01',0,'local','2014-08-29 01:22:54','2014-08-29 01:22:54',NULL,1,NULL,1,1,1);
+INSERT INTO `event` VALUES (1,'3bd5983f9d1748d0bca5719c57f72815','inbox','p5ßë‹\rD_∂Î ä@Ø◊˝','','desc1','data1','InboxHeadquarters',1,NULL,NULL,'1970-01-01 00:00:01','1970-02-01 00:00:01',0,'local','2014-08-29 01:22:53','2014-08-29 01:22:53',NULL,1,NULL,1,0,1,'{}'),(2,'b9f18495985f4814a95e28f3e119a730','inbox','◊éÌv‘êAπ‡FcÕVø\n','','desc2','data2','InboxHeadquarters',1,NULL,NULL,'1970-01-01 00:00:01','1970-01-01 00:00:01',0,'local','2014-08-29 01:22:54','2014-08-29 01:22:54',NULL,2,NULL,1,1,1,'{}'),(3,'c9f18495985f4814a95e28f3e119a730','inbox','◊éÌv‘êAπjFcÕVø\n','','desc5','data3','InboxHeadquarters',1,NULL,NULL,'1970-02-01 00:00:01','1970-03-01 00:00:01',0,'local','2014-08-29 01:22:54','2014-08-29 01:22:54',NULL,1,NULL,1,1,1,'{}');
 /*!40000 ALTER TABLE `event` ENABLE KEYS */;
 UNLOCK TABLES;
 
@@ -877,7 +919,7 @@ CREATE TABLE `imapfoldersyncstatus` (
 
 LOCK TABLES `imapfoldersyncstatus` WRITE;
 /*!40000 ALTER TABLE `imapfoldersyncstatus` DISABLE KEYS */;
-INSERT INTO `imapfoldersyncstatus` VALUES (1,1,'poll','2014-05-13 02:19:12','2014-05-13 02:19:12',NULL,NULL,2),(2,1,'poll','2014-05-13 02:19:12','2014-05-13 02:19:12',NULL,NULL,3);
+INSERT INTO `imapfoldersyncstatus` VALUES (2,1,'poll','2014-05-13 02:19:12','2014-05-13 02:19:12',NULL,NULL,2);
 /*!40000 ALTER TABLE `imapfoldersyncstatus` ENABLE KEYS */;
 UNLOCK TABLES;
 
@@ -949,7 +991,7 @@ CREATE TABLE `imapuid` (
 
 LOCK TABLES `imapuid` WRITE;
 /*!40000 ALTER TABLE `imapuid` DISABLE KEYS */;
-INSERT INTO `imapuid` VALUES (2,1,1,380,0,0,0,0,0,'[]',2,'2014-05-13 02:19:13','2014-05-13 02:19:13',NULL,'[]'),(4,1,2,943,0,1,0,0,0,'[]',2,'2014-05-13 02:19:13','2014-05-13 02:19:13',NULL,'[]'),(6,1,3,934,0,1,0,0,0,'[]',2,'2014-05-13 02:19:13','2014-05-13 02:19:13',NULL,'[]'),(8,1,4,555,0,0,0,0,0,'[]',2,'2014-05-13 02:19:13','2014-05-13 02:19:13',NULL,'[]'),(10,1,5,554,0,0,0,0,0,'[]',2,'2014-05-13 02:19:13','2014-05-13 02:19:13',NULL,'[]'),(12,1,6,406,0,1,0,0,0,'[]',2,'2014-05-13 02:19:13','2014-05-13 02:19:13',NULL,'[]'),(14,1,7,385,0,0,0,0,0,'[]',2,'2014-05-13 02:19:13','2014-05-13 02:19:13',NULL,'[]'),(16,1,8,378,0,1,0,0,0,'[]',2,'2014-05-13 02:19:13','2014-05-13 02:19:13',NULL,'[]'),(18,1,9,377,0,0,0,0,0,'[]',2,'2014-05-13 02:19:13','2014-05-13 02:19:13',NULL,'[]'),(20,1,10,375,0,0,0,0,0,'[]',2,'2014-05-13 02:19:13','2014-05-13 02:19:13',NULL,'[]'),(21,1,11,341,0,0,0,0,0,'[]',3,'2014-05-13 02:19:13','2014-05-13 02:19:13',NULL,'[]'),(22,1,12,339,0,0,0,0,0,'[]',3,'2014-05-13 02:19:13','2014-05-13 02:19:13',NULL,'[]'),(23,1,13,338,0,0,0,0,0,'[]',3,'2014-05-13 02:19:13','2014-05-13 02:19:13',NULL,'[]'),(24,1,14,320,0,0,0,0,0,'[]',3,'2014-05-13 02:19:13','2014-05-13 02:19:13',NULL,'[]'),(25,1,15,316,0,0,0,0,0,'[]',3,'2014-05-13 02:19:13','2014-05-13 02:19:13',NULL,'[]'),(26,1,16,184,0,1,0,0,0,'[]',3,'2014-05-13 02:19:13','2014-05-13 02:19:13',NULL,'[]');
+INSERT INTO `imapuid` VALUES (2,1,1,380,0,0,0,0,0,'[]',2,'2014-05-13 02:19:13','2014-05-13 02:19:13',NULL,'[]'),(22,1,12,339,0,0,0,0,0,'[]',2,'2014-05-13 02:19:13','2014-05-13 02:19:13',NULL,'[]'),(23,1,13,338,0,0,0,0,0,'[]',2,'2014-05-13 02:19:13','2014-05-13 02:19:13',NULL,'[]'),(24,1,14,320,0,0,0,0,0,'[]',3,'2014-05-13 02:19:13','2014-05-13 02:19:13',NULL,'[]'),(25,1,15,316,0,0,0,0,0,'[]',3,'2014-05-13 02:19:13','2014-05-13 02:19:13',NULL,'[]'),(26,1,16,184,0,1,0,0,0,'[]',3,'2014-05-13 02:19:13','2014-05-13 02:19:13',NULL,'[]');
 /*!40000 ALTER TABLE `imapuid` ENABLE KEYS */;
 UNLOCK TABLES;
 
@@ -1313,6 +1355,74 @@ LOCK TABLES `searchindexcursor` WRITE;
 UNLOCK TABLES;
 
 --
+-- Table structure for table `searchsignal`
+--
+
+DROP TABLE IF EXISTS `searchsignal`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8 */;
+CREATE TABLE `searchsignal` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `name` varchar(40) DEFAULT NULL,
+  `value` int(11) DEFAULT NULL,
+  `contact_id` int(11) NOT NULL,
+  `created_at` datetime NOT NULL,
+  `updated_at` datetime NOT NULL,
+  `deleted_at` datetime DEFAULT NULL,
+  PRIMARY KEY (`id`),
+  KEY `contact_id` (`contact_id`),
+  KEY `ix_searchsignal_created_at` (`created_at`),
+  KEY `ix_searchsignal_deleted_at` (`deleted_at`),
+  KEY `ix_searchsignal_updated_at` (`updated_at`),
+  CONSTRAINT `searchsignal_ibfk_1` FOREIGN KEY (`contact_id`) REFERENCES `contact` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB AUTO_INCREMENT=20 DEFAULT CHARSET=utf8mb4;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Dumping data for table `searchsignal`
+--
+
+LOCK TABLES `searchsignal` WRITE;
+/*!40000 ALTER TABLE `searchsignal` DISABLE KEYS */;
+INSERT INTO `searchsignal` VALUES (1,'to_count',15,1,'2014-05-13 02:19:13','2014-05-13 02:19:13',NULL),(2,'latest_timestamp',1398902894,1,'2014-05-13 02:19:13','2014-05-13 02:19:13',NULL),(3,'from_count',6,2,'2014-05-13 02:19:13','2014-05-13 02:19:13',NULL),(4,'latest_timestamp',1398902894,2,'2014-05-13 02:19:13','2014-05-13 02:19:13',NULL),(5,'to_count',1,3,'2014-05-13 02:19:13','2014-05-13 02:19:13',NULL),(6,'latest_timestamp',1399076765,3,'2014-05-13 02:19:13','2014-05-13 02:19:13',NULL),(7,'cc_count',1,4,'2014-05-13 02:19:13','2014-05-13 02:19:13',NULL),(8,'latest_timestamp',1399076765,4,'2014-05-13 02:19:13','2014-05-13 02:19:13',NULL),(9,'from_count',1,4,'2014-05-13 02:19:13','2014-05-13 02:19:13',NULL),(10,'from_count',1,5,'2014-05-13 02:19:13','2014-05-13 02:19:13',NULL),(11,'latest_timestamp',1377021748,5,'2014-05-13 02:19:13','2014-05-13 02:19:13',NULL),(12,'from_count',1,6,'2014-05-13 02:19:13','2014-05-13 02:19:13',NULL),(13,'latest_timestamp',1395377580,6,'2014-05-13 02:19:13','2014-05-13 02:19:13',NULL),(14,'from_count',1,7,'2014-05-13 02:19:13','2014-05-13 02:19:13',NULL),(15,'latest_timestamp',1382324143,7,'2014-05-13 02:19:13','2014-05-13 02:19:13',NULL),(16,'cc_count',5,2,'2014-05-13 02:19:13','2014-05-13 02:19:13',NULL),(17,'from_count',5,1,'2014-05-13 02:19:13','2014-05-13 02:19:13',NULL),(18,'from_count',1,8,'2014-05-13 02:19:13','2014-05-13 02:19:13',NULL),(19,'latest_timestamp',1398329884,8,'2014-05-13 02:19:13','2014-05-13 02:19:13',NULL);
+/*!40000 ALTER TABLE `searchsignal` ENABLE KEYS */;
+UNLOCK TABLES;
+
+--
+-- Table structure for table `searchtoken`
+--
+
+DROP TABLE IF EXISTS `searchtoken`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8 */;
+CREATE TABLE `searchtoken` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `token` varchar(255) DEFAULT NULL,
+  `source` enum('name','email_address') DEFAULT NULL,
+  `contact_id` int(11) DEFAULT NULL,
+  `created_at` datetime NOT NULL,
+  `updated_at` datetime NOT NULL,
+  `deleted_at` datetime DEFAULT NULL,
+  PRIMARY KEY (`id`),
+  KEY `contact_id` (`contact_id`),
+  KEY `ix_searchtoken_created_at` (`created_at`),
+  KEY `ix_searchtoken_deleted_at` (`deleted_at`),
+  KEY `ix_searchtoken_updated_at` (`updated_at`),
+  CONSTRAINT `searchtoken_ibfk_1` FOREIGN KEY (`contact_id`) REFERENCES `contact` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB AUTO_INCREMENT=30 DEFAULT CHARSET=utf8mb4;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Dumping data for table `searchtoken`
+--
+
+LOCK TABLES `searchtoken` WRITE;
+/*!40000 ALTER TABLE `searchtoken` DISABLE KEYS */;
+INSERT INTO `searchtoken` VALUES (1,'inboxapptest@gmail.com','email_address',1,'2014-05-13 02:19:13','2014-05-13 02:19:13',NULL),(2,'','name',1,'2014-05-13 02:19:13','2014-05-13 02:19:13',NULL),(3,'benbitdiddle1861@gmail.com','email_address',2,'2014-05-13 02:19:13','2014-05-13 02:19:13',NULL),(4,'Ben','name',2,'2014-05-13 02:19:13','2014-05-13 02:19:13',NULL),(5,'Bitdiddle','name',2,'2014-05-13 02:19:13','2014-05-13 02:19:13',NULL),(6,'Ben Bitdiddle','name',2,'2014-05-13 02:19:13','2014-05-13 02:19:13',NULL),(7,'paulxtiseo@gmail.com','email_address',3,'2014-05-13 02:19:13','2014-05-13 02:19:13',NULL),(8,'Paul','name',3,'2014-05-13 02:19:13','2014-05-13 02:19:13',NULL),(9,'Tiseo','name',3,'2014-05-13 02:19:13','2014-05-13 02:19:13',NULL),(10,'Paul Tiseo','name',3,'2014-05-13 02:19:13','2014-05-13 02:19:13',NULL),(11,'golang-nuts@googlegroups.com','email_address',4,'2014-05-13 02:19:13','2014-05-13 02:19:13',NULL),(12,'golang-nuts','name',4,'2014-05-13 02:19:13','2014-05-13 02:19:13',NULL),(13,'golang-nuts','name',4,'2014-05-13 02:19:13','2014-05-13 02:19:13',NULL),(14,'mail-noreply@google.com','email_address',5,'2014-05-13 02:19:13','2014-05-13 02:19:13',NULL),(15,'Gmail','name',5,'2014-05-13 02:19:13','2014-05-13 02:19:13',NULL),(16,'Team','name',5,'2014-05-13 02:19:13','2014-05-13 02:19:13',NULL),(17,'Gmail Team','name',5,'2014-05-13 02:19:13','2014-05-13 02:19:13',NULL),(18,'christine@spang.cc','email_address',6,'2014-05-13 02:19:13','2014-05-13 02:19:13',NULL),(19,'Christine','name',6,'2014-05-13 02:19:13','2014-05-13 02:19:13',NULL),(20,'Spang','name',6,'2014-05-13 02:19:13','2014-05-13 02:19:13',NULL),(21,'Christine Spang','name',6,'2014-05-13 02:19:13','2014-05-13 02:19:13',NULL),(22,'no-reply@accounts.google.com','email_address',7,'2014-05-13 02:19:13','2014-05-13 02:19:13',NULL),(23,'','name',7,'2014-05-13 02:19:13','2014-05-13 02:19:13',NULL),(24,'kavya719@gmail.com','email_address',8,'2014-05-13 02:19:13','2014-05-13 02:19:13',NULL),(25,'kavya','name',8,'2014-05-13 02:19:13','2014-05-13 02:19:13',NULL),(26,'joshi','name',8,'2014-05-13 02:19:13','2014-05-13 02:19:13',NULL),(27,'kavya joshi','name',8,'2014-05-13 02:19:13','2014-05-13 02:19:13',NULL),(28,'test','name',9,'2014-07-31 00:29:54','2014-07-31 00:29:54',NULL),(29,'test','name',9,'2014-07-31 00:29:54','2014-07-31 00:29:54',NULL);
+/*!40000 ALTER TABLE `searchtoken` ENABLE KEYS */;
+UNLOCK TABLES;
+
+--
 -- Table structure for table `secret`
 --
 
@@ -1635,6 +1745,30 @@ LOCK TABLES `webhook` WRITE;
 /*!40000 ALTER TABLE `webhook` DISABLE KEYS */;
 /*!40000 ALTER TABLE `webhook` ENABLE KEYS */;
 UNLOCK TABLES;
+
+--
+-- Table structure for table `yahooaccount`
+--
+
+DROP TABLE IF EXISTS `yahooaccount`;
+/*!40101 SET @saved_cs_client     = @@character_set_client */;
+/*!40101 SET character_set_client = utf8 */;
+CREATE TABLE `yahooaccount` (
+  `id` int(11) NOT NULL,
+  `password` varchar(256) DEFAULT NULL,
+  PRIMARY KEY (`id`),
+  CONSTRAINT `yahooaccount_ibfk_1` FOREIGN KEY (`id`) REFERENCES `imapaccount` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+/*!40101 SET character_set_client = @saved_cs_client */;
+
+--
+-- Dumping data for table `yahooaccount`
+--
+
+LOCK TABLES `yahooaccount` WRITE;
+/*!40000 ALTER TABLE `yahooaccount` DISABLE KEYS */;
+/*!40000 ALTER TABLE `yahooaccount` ENABLE KEYS */;
+UNLOCK TABLES;
 /*!40103 SET TIME_ZONE=@OLD_TIME_ZONE */;
 
 /*!40101 SET SQL_MODE=@OLD_SQL_MODE */;
@@ -1645,4 +1779,4 @@ UNLOCK TABLES;
 /*!40101 SET COLLATION_CONNECTION=@OLD_COLLATION_CONNECTION */;
 /*!40111 SET SQL_NOTES=@OLD_SQL_NOTES */;
 
--- Dump completed on 2014-12-04  1:08:43
+-- Dump completed on 2014-12-23 22:06:37

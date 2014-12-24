@@ -138,7 +138,8 @@ def update_draft(db_session, account, original_draft, to_addr=None,
     # Delete previous version on remote
     schedule_action('delete_draft', original_draft,
                     original_draft.namespace.id, db_session,
-                    inbox_uid=original_draft.inbox_uid)
+                    inbox_uid=original_draft.inbox_uid,
+                    message_id_header=original_draft.message_id_header)
 
     # Update version  + inbox_uid (is_created is already set)
     version = generate_public_id()
@@ -158,20 +159,27 @@ def delete_draft(db_session, account, draft_public_id):
     """ Delete the draft with public_id = `draft_public_id`. """
     draft = db_session.query(Message).filter(
         Message.public_id == draft_public_id).one()
+    thread = draft.thread
+    namespace = draft.namespace
 
     assert draft.is_draft
 
-    db_session.delete(draft)
-
-    # Remove the drafts tag from the thread if there are no more drafts.
-    if not draft.thread.drafts:
-        draft.thread.remove_tag(draft.namespace.tags['drafts'])
-
-    db_session.commit()
-
     # Delete remotely.
     schedule_action('delete_draft', draft, draft.namespace.id, db_session,
-                    inbox_uid=draft.inbox_uid)
+                    inbox_uid=draft.inbox_uid,
+                    message_id_header=draft.message_id_header)
+
+    db_session.delete(draft)
+
+    # Delete the thread if it would now be empty.
+    if not thread.messages:
+        db_session.delete(thread)
+    elif not thread.drafts:
+        # Otherwise, remove the drafts tag from the thread if there are no more
+        # drafts on it.
+        thread.remove_tag(namespace.tags['drafts'])
+
+    db_session.commit()
 
 
 def generate_attachments(blocks):

@@ -240,8 +240,8 @@ get_default_providers = lambda: {
         "domains": [
             "onmicrosoft.com",
             "exchange.mit.edu",
-            ],
-        "mx_servers": ["protection.outlook.com",],
+        ],
+        "mx_servers": ["protection.outlook.com"]
     },
     "fastmail": {
         "type": "generic",
@@ -342,7 +342,7 @@ get_default_providers = lambda: {
         "imap": ("imap-mail.outlook.com", 993),
         "smtp": ("smtp.live.com", 587),
         "auth": "oauth2",
-        "events": True,
+        "events": False,
         "domains": ["hotmail.com", "outlook.com", "outlook.com.ar",
                     "outlook.com.au", "outlook.at", "outlook.be",
                     "outlook.com.br", "outlook.cl", "outlook.cz", "outlook.dk",
@@ -397,7 +397,7 @@ get_default_providers = lambda: {
     "godaddy": {
         "type": "generic",
         "imap": ("imap.secureserver.net", 993),
-        "smtp": ("smtpout.secureserver.net", 587),
+        "smtp": ("smtpout.secureserver.net", 465),
         "auth": "password",
         "mx_servers": ["mailstore1.secureserver.net",
                        "mailstore1.asia.secureserver.net",

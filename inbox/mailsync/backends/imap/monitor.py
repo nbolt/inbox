@@ -1,9 +1,9 @@
 from gevent import sleep
 from gevent.pool import Group
+from gevent.coros import BoundedSemaphore
 from sqlalchemy.orm.exc import NoResultFound
 from inbox.log import get_logger
 from inbox.models import Folder
-from inbox.models.util import db_write_lock
 from inbox.mailsync.backends.base import BaseMailSyncMonitor
 from inbox.mailsync.backends.base import (save_folder_names,
                                           MailsyncError,
@@ -37,7 +37,7 @@ class ImapSyncMonitor(BaseMailSyncMonitor):
                  retry_fail_classes=[], refresh_flags_max=2000):
         self.refresh_frequency = refresh_frequency
         self.poll_frequency = poll_frequency
-        self.syncmanager_lock = db_write_lock(account.namespace.id)
+        self.syncmanager_lock = BoundedSemaphore(1)
         self.refresh_flags_max = refresh_flags_max
 
         provider_supports_condstore = account.provider_info.get('condstore',
@@ -96,11 +96,10 @@ class ImapSyncMonitor(BaseMailSyncMonitor):
                                             self.refresh_flags_max,
                                             self.retry_fail_classes)
             self.folder_monitors.start(thread)
-            if thread.should_block:
-                while not thread_polling(thread) and \
-                        not thread_finished(thread) and \
-                        not thread.ready():
-                    sleep(self.heartbeat)
+            while not thread_polling(thread) and \
+                    not thread_finished(thread) and \
+                    not thread.ready():
+                sleep(self.heartbeat)
 
             # allow individual folder sync monitors to shut themselves down
             # after completing the initial sync

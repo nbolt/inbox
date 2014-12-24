@@ -10,8 +10,7 @@ from sqlalchemy.orm.exc import NoResultFound
 from sqlalchemy.orm import subqueryload
 
 from inbox.models import (Message, Block, Part, Thread, Namespace,
-                          Tag, Contact, Calendar, Event, Participant,
-                          Transaction)
+                          Tag, Contact, Calendar, Event, Transaction)
 from inbox.api.kellogs import APIEncoder
 from inbox.api import filtering
 from inbox.api.validation import (InputError, get_tags, get_attachments,
@@ -151,6 +150,7 @@ def tag_query_api():
     if args['view'] == 'count':
         return g.encoder.jsonify({"count": query.one()[0]})
 
+    query = query.order_by(Tag.id)
     query = query.limit(args['limit'])
     if args['offset']:
         query = query.offset(args['offset'])
@@ -702,33 +702,34 @@ def event_read_api(public_id):
     g.parser.add_argument('rsvp', type=valid_rsvp, location='args')
     args = strict_parse_args(g.parser, request.args)
 
-    if 'action' in args:
-        # Participants are able to RSVP to events by clicking on links (e.g.
-        # that are emailed to them). Therefore, the RSVP action is invoked via
-        # a GET.
-        if args['action'] == 'rsvp':
-            try:
-                participant_id = args.get('participant_id')
-                if not participant_id:
-                    return err(404, "Must specify a participant_id with rsvp")
+    # FIXME karim -- re-enable this after landing the participants refactor (T687)
+    #if 'action' in args:
+    #    # Participants are able to RSVP to events by clicking on links (e.g.
+    #    # that are emailed to them). Therefore, the RSVP action is invoked via
+    #    # a GET.
+    #    if args['action'] == 'rsvp':
+    #        try:
+    #            participant_id = args.get('participant_id')
+    #            if not participant_id:
+    #                return err(404, "Must specify a participant_id with rsvp")
 
-                participant = g.db_session.query(Participant).filter_by(
-                    public_id=participant_id).one()
+    #            participant = g.db_session.query(Participant).filter_by(
+    #                public_id=participant_id).one()
 
-                participant.status = args['rsvp']
-                g.db_session.commit()
+    #            participant.status = args['rsvp']
+    #            g.db_session.commit()
 
-                result = events.crud.read(g.namespace, g.db_session,
-                                          public_id)
+    #            result = events.crud.read(g.namespace, g.db_session,
+    #                                      public_id)
 
-                if result is None:
-                    return err(404, "Couldn't find event with id {0}"
-                               .format(public_id))
+    #            if result is None:
+    #                return err(404, "Couldn't find event with id {0}"
+    #                           .format(public_id))
 
-                return g.encoder.jsonify(result)
-            except NoResultFound:
-                return err(404, "Couldn't find participant with id `{0}` "
-                           .format(participant_id))
+    #            return g.encoder.jsonify(result)
+    #        except NoResultFound:
+    #            return err(404, "Couldn't find participant with id `{0}` "
+    #                       .format(participant_id))
 
     result = events.crud.read(g.namespace, g.db_session, public_id)
     if result is None:
@@ -797,9 +798,11 @@ def event_delete_api(public_id):
         return err(404, 'Cannot delete event with public_id {} from '
                    ' read_only calendar.'.format(public_id))
 
-    result = events.crud.delete(g.namespace, g.db_session, public_id)
-    schedule_action('delete_event', event, g.namespace.id, g.db_session)
-    return g.encoder.jsonify(result)
+    schedule_action('delete_event', event, g.namespace.id, g.db_session,
+                    event_uid=event.uid,
+                    calendar_name=event.calendar.name)
+    events.crud.delete(g.namespace, g.db_session, public_id)
+    return g.encoder.jsonify(None)
 
 
 #
@@ -961,8 +964,7 @@ def calendar_search_api():
         Calendar.name.like(term_filter_string),
         Calendar.description.like(term_filter_string))
 
-    eager = subqueryload(Calendar.events). \
-        subqueryload(Event.participants_by_email)
+    eager = subqueryload(Calendar.events)
 
     if view == 'count':
         query = g.db_session(func.count(Calendar.id))

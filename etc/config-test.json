@@ -6,15 +6,18 @@
 "SYNC_STEAL_ACCOUNTS": true,
 
 "DB_POOL_SIZE": 25,
-"TEST_LOGFILE": "tests/log",
 
 "CACHE_BASEDIR" : "tests/cache",
-"LOGDIR": "/var/log/inboxapp",
+"LOGDIR": "/tmp/log",
 "LOGLEVEL": 10,
+"TEST_LOGFILE": "/tmp/log/test.log",
 
 "REDIS_HOSTNAME": "localhost",
 "REDIS_PORT": 6379,
 "REDIS_DATABASE": 1,
+
+"ALIVE_THRESHOLD": 180,
+"ALIVE_THRESHOLD_EAS": 420,
 
 "BASE_DUMP": "data/base_dump.sql",
 
